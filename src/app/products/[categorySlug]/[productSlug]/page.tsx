@@ -114,14 +114,16 @@ export default async function ProductDetailPage({
     .slice()
     .sort((a, b) => a.sort_order - b.sort_order);
 
+  // dimensions がある場合は個別の幅/奥行/高さ行を非表示（重複防止）
+  const hasDimensions = !!product.dimensions;
   const specs: { label: string; value: string }[] = [
-    product.color      ? { label: "カラー", value: product.color      } : null,
-    product.material   ? { label: "素材",   value: product.material   } : null,
-    product.dimensions ? { label: "サイズ", value: product.dimensions } : null,
-    product.width_mm   ? { label: "幅",     value: `${product.width_mm} mm`  } : null,
-    product.depth_mm   ? { label: "奥行",   value: `${product.depth_mm} mm`  } : null,
-    product.height_mm  ? { label: "高さ",   value: `${product.height_mm} mm` } : null,
-    product.lead_time  ? { label: "納期",   value: product.lead_time         } : null,
+    product.color                          ? { label: "カラー", value: product.color                      } : null,
+    product.material                       ? { label: "素材",   value: product.material                   } : null,
+    product.dimensions                     ? { label: "サイズ", value: product.dimensions                 } : null,
+    (!hasDimensions && product.width_mm)   ? { label: "幅",     value: `${product.width_mm} mm`           } : null,
+    (!hasDimensions && product.depth_mm)   ? { label: "奥行",   value: `${product.depth_mm} mm`           } : null,
+    (!hasDimensions && product.height_mm)  ? { label: "高さ",   value: `${product.height_mm} mm`          } : null,
+    product.lead_time                      ? { label: "納期",   value: product.lead_time                  } : null,
   ].filter((s): s is { label: string; value: string } => s !== null);
 
   // パンくずの末尾は SKU slug（仕様通り）
@@ -185,17 +187,23 @@ export default async function ProductDetailPage({
           </div>
 
           {/* 価格 */}
-          {product.selling_price != null && (
-            <div className="border-y border-neutral-800 py-5">
-              <p className="text-[9px] font-medium tracking-[0.5em] text-neutral-600 uppercase">
-                Price
+          <div className="border-y border-neutral-800 py-5">
+            <p className="text-[9px] font-medium tracking-[0.5em] text-neutral-600 uppercase">
+              Price
+            </p>
+            {product.selling_price != null ? (
+              <>
+                <p className="mt-2 text-4xl font-light tracking-tight text-amber-400">
+                  {formatYen(product.selling_price)}
+                </p>
+                <p className="mt-1.5 text-[11px] text-neutral-600">税込・卸価格</p>
+              </>
+            ) : (
+              <p className="mt-2 text-lg font-light tracking-wide text-neutral-400">
+                価格はお問い合わせください
               </p>
-              <p className="mt-2 text-4xl font-light tracking-tight text-amber-400">
-                {formatYen(product.selling_price)}
-              </p>
-              <p className="mt-1.5 text-[11px] text-neutral-600">税込・卸価格</p>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* 受注生産の注意書き */}
           {product.stock_quantity === 0 && product.is_made_to_order && (
