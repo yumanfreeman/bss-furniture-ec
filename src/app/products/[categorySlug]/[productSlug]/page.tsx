@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { slugifyForUrl } from "@/lib/slugify";
 import { ImageGallery } from "./image-gallery";
@@ -9,6 +10,88 @@ import { extractCategory } from "@/lib/types";
 import type { Category, ProductDetail, ProductImage, ProductListItem } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+// ── SEO メタデータ ──────────────────────────────────────────
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ categorySlug: string; productSlug: string }>;
+}): Promise<Metadata> {
+  const { categorySlug, productSlug } = await params;
+  const supabase = createClient();
+
+  const { data: catData } = await supabase
+    .from("categories")
+    .select("id, slug")
+    .eq("slug", categorySlug)
+    .single();
+
+  if (!catData) return { title: "BSS Beauty Salon Suppliers" };
+
+  const { data: productsData } = await supabase
+    .from("products")
+    .select(
+      "id, product_name, sku, description, " +
+      "product_images(image_url, image_type, sort_order)"
+    )
+    .not("category_id", "is", null)
+    .eq("visibility", "public")
+    .eq("category_id", catData.id);
+
+  type MetaProduct = {
+    id: string;
+    product_name: string;
+    sku: string | null;
+    description: string | null;
+    product_images: { image_url: string; image_type: string; sort_order: number }[];
+  };
+
+  const products = (productsData ?? []) as unknown as MetaProduct[];
+  const product = products.find(
+    (p) => (p.sku ? slugifyForUrl(p.sku) : null) === productSlug || p.id === productSlug,
+  );
+
+  if (!product) return { title: "BSS Beauty Salon Suppliers" };
+
+  // NEXT_PUBLIC_SITE_URL を .env.local に設定してください（例: https://bss-japan.com）
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://bss-japan.com";
+  const canonicalUrl = `${siteUrl}/products/${categorySlug}/${productSlug}`;
+
+  const description = product.description
+    ? product.description.replace(/\s+/g, " ").trim().slice(0, 155)
+    : `${product.product_name}の詳細・価格・仕様はBSS Beauty Salon Suppliersでご確認ください。`;
+
+  const mainImage =
+    (product.product_images ?? [])
+      .slice()
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .find((i) => i.image_type === "main") ??
+    (product.product_images ?? [])[0];
+
+  return {
+    title: `${product.product_name} | BSS Beauty Salon Suppliers`,
+    description,
+    alternates: { canonical: canonicalUrl },
+    openGraph: {
+      title: `${product.product_name} | BSS Beauty Salon Suppliers`,
+      description,
+      url: canonicalUrl,
+      type: "website",
+      ...(mainImage
+        ? {
+            images: [
+              {
+                url: mainImage.image_url,
+                width: 1200,
+                height: 1200,
+                alt: product.product_name,
+              },
+            ],
+          }
+        : {}),
+    },
+  };
+}
 
 function formatYen(n: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY" }).format(n);
@@ -77,7 +160,7 @@ export default async function ProductDetailPage({
     .select(
       "id, product_name, slug, sku, description, features, selling_price, " +
       "color, material, dimensions, width_mm, depth_mm, height_mm, " +
-      "status, stock_quantity, is_made_to_order, lead_time, " +
+      "status, stock_quantity, is_made_to_order, lead_time, pdf_url, " +
       "categories(id, name, slug), " +
       "product_images(id, image_url, image_type, alt_text, sort_order)"
     )
@@ -256,6 +339,34 @@ export default async function ProductDetailPage({
             </div>
           )}
 
+          {/* 仕様書PDF */}
+          {product.pdf_url && (
+            <a
+              href={product.pdf_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-neutral-700 px-6 py-3.5 text-sm font-medium text-neutral-400 transition-colors hover:border-amber-500/50 hover:text-amber-400"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="12" y1="18" x2="12" y2="12" />
+                <line x1="9" y1="15" x2="15" y2="15" />
+              </svg>
+              仕様書をダウンロード（PDF）
+            </a>
+          )}
+
           {/* ── 問い合わせ（モーダル+スティッキー統合） ── */}
           <InquirySection
             productId={product.id}
@@ -289,37 +400,59 @@ export default async function ProductDetailPage({
                 imgs.find((i) => i.image_type === "main") ?? imgs[0];
 
               return (
-                <Link
+                <div
                   key={p.id}
-                  href={relHref}
                   className="group flex flex-col overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 transition-all hover:border-amber-500/40 hover:shadow-[0_0_24px_rgba(201,168,76,0.08)]"
                 >
-                  <div className="relative aspect-square overflow-hidden bg-neutral-950">
-                    {mainImg ? (
-                      <Image
-                        src={mainImg.image_url}
-                        alt={mainImg.alt_text ?? p.product_name}
-                        fill
-                        sizes="(max-width: 640px) 50vw, 25vw"
-                        className="object-contain p-3 transition-transform duration-300 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center font-mono text-[9px] text-neutral-800">
-                        NO IMAGE
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-1 p-3">
-                    <p className="line-clamp-2 text-xs font-medium leading-snug text-neutral-300 transition-colors group-hover:text-amber-300">
-                      {p.product_name}
-                    </p>
+                  {/* 画像 */}
+                  <Link href={relHref} className="block">
+                    <div className="relative aspect-square overflow-hidden bg-neutral-950">
+                      {mainImg ? (
+                        <Image
+                          src={mainImg.image_url}
+                          alt={mainImg.alt_text ?? p.product_name}
+                          fill
+                          sizes="(max-width: 640px) 50vw, 25vw"
+                          className="object-contain p-3 transition-transform duration-300 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center font-mono text-[9px] text-neutral-800">
+                          NO IMAGE
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+
+                  {/* テキスト情報 */}
+                  <div className="flex flex-1 flex-col gap-2 p-3">
+                    <Link href={relHref}>
+                      <p className="line-clamp-2 text-xs font-medium leading-snug text-neutral-300 transition-colors group-hover:text-amber-300">
+                        {p.product_name}
+                      </p>
+                    </Link>
                     {p.sku && (
                       <p className="font-mono text-[9px] text-neutral-700">
                         {p.sku}
                       </p>
                     )}
+
+                    {/* 価格 */}
+                    <p className="mt-auto pt-1 text-xs font-medium text-amber-400">
+                      {p.selling_price != null
+                        ? formatYen(p.selling_price)
+                        : <span className="text-[10px] font-normal text-neutral-600">価格はお問い合わせください</span>
+                      }
+                    </p>
+
+                    {/* 詳細を見るボタン */}
+                    <Link
+                      href={relHref}
+                      className="mt-1 block rounded-lg border border-neutral-700 py-1.5 text-center text-[10px] font-medium tracking-wide text-neutral-400 transition-colors hover:border-amber-500/60 hover:text-amber-400"
+                    >
+                      詳細を見る
+                    </Link>
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>

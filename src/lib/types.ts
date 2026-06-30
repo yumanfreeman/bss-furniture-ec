@@ -22,6 +22,7 @@ export type ProductListItem = {
   sku: string | null;
   selling_price: number | null;
   color: string | null;
+  description: string | null;
   // Supabase join は配列で返る場合がある
   categories: Category | Category[] | null;
   product_images: ProductImage[];
@@ -46,6 +47,7 @@ export type ProductDetail = {
   stock_quantity: number;
   is_made_to_order: boolean;
   lead_time: string | null;
+  pdf_url: string | null;
   categories: Category | Category[] | null;
   product_images: ProductImage[];
 };

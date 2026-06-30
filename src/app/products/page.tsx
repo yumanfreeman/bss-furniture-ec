@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sortCategories } from "@/lib/category-order";
 import { extractCategory } from "@/lib/types";
@@ -12,61 +13,135 @@ function formatYen(n: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY" }).format(n);
 }
 
-/** 商品詳細URLを生成: slugify(sku) > id の優先順で（DB slugは使わない） */
 function productHref(catSlug: string | undefined, p: ProductListItem): string {
   if (!catSlug) return "#";
   const key = p.sku ? slugifyForUrl(p.sku) : p.id;
   return `/products/${catSlug}/${key}`;
 }
 
-export default async function ProductsPage() {
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
+  const keyword = q?.trim() ?? "";
+
   const supabase = createClient();
 
-  const [{ data: categoriesData }, { data: productsData }] = await Promise.all([
-    supabase.from("categories").select("id, name, slug").order("name"),
-    supabase
-      .from("products")
-      .select(
-        "id, product_name, slug, sku, selling_price, color, " +
-        "categories(id, name, slug), " +
-        "product_images(id, image_url, image_type, alt_text, sort_order)"
-      )
-      .not("category_id", "is", null)
-      .eq("visibility", "public")
-      .order("product_name"),
-  ]);
+  const { data: categoriesData } = await supabase
+    .from("categories")
+    .select("id, name, slug")
+    .order("name");
 
-  const rawCats = (categoriesData ?? []) as Category[];
-  const categories = sortCategories(rawCats);
+  let productQuery = supabase
+    .from("products")
+    .select(
+      "id, product_name, slug, sku, selling_price, color, description, " +
+      "categories(id, name, slug), " +
+      "product_images(id, image_url, image_type, alt_text, sort_order)"
+    )
+    .not("category_id", "is", null)
+    .eq("visibility", "public")
+    .order("product_name");
+
+  if (keyword) {
+    productQuery = productQuery.or(
+      `product_name.ilike.%${keyword}%,sku.ilike.%${keyword}%,description.ilike.%${keyword}%`
+    );
+  }
+
+  const { data: productsData } = await productQuery;
+
+  const categories = sortCategories((categoriesData ?? []) as Category[]);
   const products = (productsData ?? []) as unknown as ProductListItem[];
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-10">
-      <div className="mb-8">
-        <p className="text-[9px] font-medium tracking-[0.5em] text-amber-500 uppercase">Products</p>
-        <h1 className="mt-1 text-2xl font-light tracking-wider text-neutral-200">商品一覧</h1>
-        <p className="mt-1 text-xs text-neutral-600">{products.length} 件</p>
+    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+
+      {/* ── ページヘッダー ── */}
+      <div className="mb-6">
+        <p className="text-[9px] font-medium tracking-[0.5em] text-amber-500 uppercase">
+          Products
+        </p>
+        <h1 className="mt-1 text-2xl font-light tracking-wider text-neutral-200">
+          商品一覧
+        </h1>
+      </div>
+
+      {/* ── 検索バー ── */}
+      <form action="/products" method="GET" className="mb-6">
+        <div className="relative max-w-lg">
+          <Search
+            size={15}
+            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-600"
+          />
+          <input
+            name="q"
+            defaultValue={keyword}
+            placeholder="商品名・SKU・説明で検索"
+            className="w-full rounded-xl border border-neutral-800 bg-neutral-900 py-2.5 pl-10 pr-10 text-sm text-neutral-200 placeholder-neutral-700 outline-none transition-colors focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20"
+          />
+          {keyword && (
+            <Link
+              href="/products"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-600 hover:text-neutral-400"
+              aria-label="検索クリア"
+            >
+              <X size={15} />
+            </Link>
+          )}
+        </div>
+      </form>
+
+      {/* ── カテゴリ（モバイル：横スクロールチップ） ── */}
+      <div className="mb-6 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+        <Link
+          href="/products"
+          className={`shrink-0 rounded-full border px-3 py-1 font-mono text-[10px] transition-colors ${
+            !keyword
+              ? "border-amber-500/60 bg-amber-950/30 text-amber-400"
+              : "border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300"
+          }`}
+        >
+          all
+        </Link>
+        {categories.map((cat) => (
+          <Link
+            key={cat.id}
+            href={`/products/${cat.slug}`}
+            className="shrink-0 rounded-full border border-neutral-800 px-3 py-1 font-mono text-[10px] text-neutral-500 transition-colors hover:border-neutral-600 hover:text-neutral-300"
+          >
+            {cat.slug}
+          </Link>
+        ))}
       </div>
 
       <div className="flex gap-8">
-        {/* ── カテゴリサイドバー（slug 英語表示） ── */}
-        <aside className="w-44 shrink-0">
+        {/* ── カテゴリサイドバー（PC） ── */}
+        <aside className="hidden w-44 shrink-0 lg:block">
           <p className="mb-3 text-[9px] font-medium tracking-[0.4em] text-neutral-600 uppercase">
             Category
           </p>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-0.5">
             <Link
               href="/products"
-              className="rounded bg-amber-950/30 px-2 py-1.5 font-mono text-xs text-amber-400"
+              className={`flex items-center gap-2 rounded-lg px-3 py-2 font-mono text-xs transition-colors ${
+                !keyword
+                  ? "bg-amber-950/30 text-amber-400"
+                  : "text-neutral-500 hover:bg-neutral-800/50 hover:text-neutral-300"
+              }`}
             >
+              <span className="h-1 w-1 rounded-full bg-current opacity-60" />
               all
             </Link>
             {categories.map((cat) => (
               <Link
                 key={cat.id}
                 href={`/products/${cat.slug}`}
-                className="rounded px-2 py-1.5 font-mono text-xs text-neutral-500 transition-colors hover:text-amber-400"
+                className="flex items-center gap-2 rounded-lg px-3 py-2 font-mono text-xs text-neutral-500 transition-colors hover:bg-neutral-800/50 hover:text-neutral-300"
               >
+                <span className="h-1 w-1 rounded-full bg-current opacity-60" />
                 {cat.slug}
               </Link>
             ))}
@@ -74,53 +149,101 @@ export default async function ProductsPage() {
         </aside>
 
         {/* ── 商品グリッド ── */}
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
+          {/* 件数 / 検索結果ラベル */}
+          <p className="mb-4 text-xs text-neutral-600">
+            {keyword ? (
+              <>
+                <span className="text-neutral-400">&ldquo;{keyword}&rdquo;</span>
+                {" の検索結果 — "}
+                <span className="text-neutral-300">{products.length} 件</span>
+              </>
+            ) : (
+              <span className="text-neutral-700">{products.length} 件</span>
+            )}
+          </p>
+
           {products.length === 0 ? (
-            <p className="py-20 text-center text-sm text-neutral-600">公開中の商品がありません</p>
+            <div className="flex flex-col items-center justify-center py-24 text-center">
+              <p className="text-sm text-neutral-600">
+                {keyword ? `「${keyword}」に一致する商品が見つかりません` : "公開中の商品がありません"}
+              </p>
+              {keyword && (
+                <Link
+                  href="/products"
+                  className="mt-4 text-xs text-amber-500 hover:text-amber-400"
+                >
+                  ← すべての商品を表示
+                </Link>
+              )}
+            </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
               {products.map((p) => {
                 const cat = extractCategory(p.categories);
                 const imgs = p.product_images ?? [];
-                const mainImg = imgs.find((i) => i.image_type === "main") ?? imgs[0];
+                const mainImg =
+                  imgs.find((i) => i.image_type === "main") ??
+                  imgs.slice().sort((a, b) => a.sort_order - b.sort_order)[0];
                 const href = productHref(cat?.slug, p);
 
                 return (
                   <Link
                     key={p.id}
                     href={href}
-                    className="group flex flex-col overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900 transition-all hover:border-amber-500/40 hover:shadow-[0_0_20px_rgba(201,168,76,0.08)]"
+                    className="group flex flex-col overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 transition-all hover:border-amber-500/40 hover:shadow-[0_0_24px_rgba(201,168,76,0.08)]"
                   >
-                    <div className="relative aspect-[4/3] overflow-hidden bg-neutral-950">
+                    {/* 画像 */}
+                    <div className="relative aspect-square overflow-hidden bg-neutral-950">
                       {mainImg ? (
                         <Image
                           src={mainImg.image_url}
-                          alt={p.product_name}
+                          alt={mainImg.alt_text ?? p.product_name}
                           fill
-                          sizes="(max-width: 640px) 50vw, 25vw"
-                          className="object-contain transition-transform duration-300 group-hover:scale-105"
+                          sizes="(max-width: 640px) 50vw, (max-width: 1280px) 33vw, 25vw"
+                          className="object-contain p-3 transition-transform duration-300 group-hover:scale-105"
                         />
                       ) : (
-                        <div className="flex h-full items-center justify-center text-[10px] text-neutral-800">
+                        <div className="flex h-full items-center justify-center font-mono text-[9px] text-neutral-800">
                           NO IMAGE
                         </div>
                       )}
                     </div>
-                    <div className="flex flex-col gap-1 p-3">
+
+                    {/* テキスト情報 */}
+                    <div className="flex flex-1 flex-col gap-1.5 p-3">
+                      {/* カテゴリ slug */}
                       {cat?.slug && (
-                        <span className="font-mono text-[9px] text-amber-600/70">{cat.slug}</span>
+                        <span className="font-mono text-[9px] text-amber-600/70">
+                          {cat.slug}
+                        </span>
                       )}
+
+                      {/* 商品名 */}
                       <p className="line-clamp-2 text-xs font-medium leading-snug text-neutral-200 transition-colors group-hover:text-amber-300">
                         {p.product_name}
                       </p>
+
+                      {/* SKU */}
                       {p.sku && (
                         <p className="font-mono text-[9px] text-neutral-700">{p.sku}</p>
                       )}
-                      {p.selling_price != null && (
-                        <p className="mt-auto pt-2 text-sm font-semibold text-amber-400">
-                          {formatYen(p.selling_price)}
-                        </p>
-                      )}
+
+                      {/* 価格 */}
+                      <p className="mt-auto pt-1.5 text-sm font-semibold text-amber-400">
+                        {p.selling_price != null ? (
+                          formatYen(p.selling_price)
+                        ) : (
+                          <span className="text-[10px] font-normal text-neutral-600">
+                            価格はお問い合わせください
+                          </span>
+                        )}
+                      </p>
+
+                      {/* 詳細を見るボタン（span — 外側の Link で遷移） */}
+                      <span className="mt-1 block rounded-lg border border-neutral-800 py-1.5 text-center text-[10px] font-medium tracking-wide text-neutral-500 transition-colors group-hover:border-amber-500/50 group-hover:text-amber-400">
+                        詳細を見る →
+                      </span>
                     </div>
                   </Link>
                 );
