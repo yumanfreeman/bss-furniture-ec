@@ -17,9 +17,9 @@ export function ImageGallery({ images, productName }: Props) {
 
   if (images.length === 0) {
     return (
-      <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950">
-        <div className="flex h-full items-center justify-center text-sm text-neutral-700">
-          NO IMAGE
+      <div className="relative aspect-square overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950">
+        <div className="flex h-full flex-col items-center justify-center gap-2 text-neutral-700">
+          <span className="font-mono text-xs tracking-widest">NO IMAGE</span>
         </div>
       </div>
     );
@@ -27,14 +27,14 @@ export function ImageGallery({ images, productName }: Props) {
 
   return (
     <div className="space-y-3">
-      {/* メイン画像 */}
-      <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950">
+      {/* メイン画像 — 正方形で大きく */}
+      <div className="relative aspect-square overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950 shadow-[0_0_40px_rgba(0,0,0,0.6)]">
         <Image
           src={selected.image_url}
           alt={selected.alt_text ?? productName}
           fill
           sizes="(max-width: 1024px) 100vw, 50vw"
-          className="object-contain transition-opacity duration-200"
+          className="object-contain p-4 transition-opacity duration-300"
           priority
         />
       </div>
@@ -49,18 +49,18 @@ export function ImageGallery({ images, productName }: Props) {
                 key={img.id}
                 type="button"
                 onClick={() => setSelectedId(img.id)}
-                className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-md border-2 bg-neutral-900 transition-all ${
+                className={`relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-lg border-2 bg-neutral-900 transition-all duration-150 ${
                   isActive
-                    ? "border-amber-500"
-                    : "border-neutral-700 hover:border-neutral-500"
+                    ? "border-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.3)]"
+                    : "border-neutral-800 hover:border-neutral-600"
                 }`}
               >
                 <Image
                   src={img.image_url}
                   alt={img.alt_text ?? ""}
                   fill
-                  sizes="80px"
-                  className="object-contain"
+                  sizes="72px"
+                  className="object-contain p-1.5"
                 />
               </button>
             );

@@ -63,10 +63,10 @@ export default async function CategoryPage({
 
       <div className="mb-8">
         <p className="font-mono text-[9px] font-medium tracking-[0.3em] text-amber-500">
-          {currentCat.slug}
+          Category
         </p>
         <h1 className="mt-1 text-2xl font-light tracking-wider text-neutral-200">
-          {currentCat.name}
+          {currentCat.slug}
         </h1>
         <p className="mt-1 text-xs text-neutral-600">{products.length} 件</p>
       </div>
