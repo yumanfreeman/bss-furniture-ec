@@ -26,13 +26,14 @@ export type CheckoutResult = {
   error: string | null;
 };
 
-async function generateOrderNumber(supabase: ReturnType<typeof createClient>): Promise<string> {
-  const year = new Date().getFullYear();
-  const { count } = await supabase
-    .from("ec_orders")
-    .select("id", { count: "exact", head: true });
-  const seq = String((count ?? 0) + 1).padStart(6, "0");
-  return `E-${year}-${seq}`;
+// DBを読まずに一意な注文番号を生成する（日付 + ランダム文字列）
+function generateOrderNumber(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `E-${y}${m}${d}-${random}`;
 }
 
 export async function submitOrder(
@@ -45,12 +46,15 @@ export async function submitOrder(
 
   const supabase = createClient(); // anon key
 
-  const orderNumber = await generateOrderNumber(supabase);
+  // orderId・order_number は事前にアプリ側で生成する（INSERT後の .select() を使わないため）
+  const orderId = crypto.randomUUID();
+  const orderNumber = generateOrderNumber();
 
-  // ec_orders に INSERT
-  const { data: order, error: orderErr } = await supabase
+  // ec_orders に INSERT（RLSのSELECT policyに依存しないよう .select() は使わない）
+  const { error: orderErr } = await supabase
     .from("ec_orders")
     .insert({
+      id: orderId,
       order_number: orderNumber,
       status: "pending",
       customer_name: payload.customerName.trim(),
@@ -59,15 +63,11 @@ export async function submitOrder(
       customer_phone: payload.customerPhone?.trim() || null,
       customer_address: payload.customerAddress?.trim() || null,
       notes: payload.notes?.trim() || null,
-    })
-    .select("id")
-    .single();
+    });
 
-  if (orderErr || !order) {
-    return { orderNumber: null, orderId: null, error: orderErr?.message ?? "注文の送信に失敗しました。" };
+  if (orderErr) {
+    return { orderNumber: null, orderId: null, error: orderErr.message ?? "注文の送信に失敗しました。" };
   }
-
-  const orderId = order.id as string;
 
   // ec_order_items に INSERT
   const itemRows = payload.items.map((it, i) => ({
