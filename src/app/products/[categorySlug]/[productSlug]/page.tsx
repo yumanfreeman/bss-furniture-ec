@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { slugifyForUrl } from "@/lib/slugify";
 import { ImageGallery } from "./image-gallery";
 import { InquirySection } from "./inquiry-section";
+import { AddToCartButton } from "./add-to-cart-button";
 import { extractCategory } from "@/lib/types";
 import type { Category, ProductDetail, ProductImage, ProductListItem } from "@/lib/types";
 
@@ -77,18 +78,11 @@ export async function generateMetadata({
       description,
       url: canonicalUrl,
       type: "website",
-      ...(mainImage
-        ? {
-            images: [
-              {
-                url: mainImage.image_url,
-                width: 1200,
-                height: 1200,
-                alt: product.product_name,
-              },
-            ],
-          }
-        : {}),
+      images: [
+        mainImage
+          ? { url: mainImage.image_url, width: 1200, height: 1200, alt: product.product_name }
+          : { url: `${siteUrl}/logo.png`, width: 640, height: 512, alt: "BSS Beauty Salon Suppliers" },
+      ],
     },
   };
 }
@@ -197,6 +191,10 @@ export default async function ProductDetailPage({
     .slice()
     .sort((a, b) => a.sort_order - b.sort_order);
 
+  // image_url が null のレコードを除いた最初の有効な画像URL
+  const firstValidImageUrl =
+    images.find((img) => !!img.image_url)?.image_url ?? null;
+
   // dimensions がある場合は個別の幅/奥行/高さ行を非表示（重複防止）
   const hasDimensions = !!product.dimensions;
   const specs: { label: string; value: string }[] = [
@@ -212,8 +210,43 @@ export default async function ProductDetailPage({
   // パンくずの末尾は SKU slug（仕様通り）
   const breadcrumbEnd = product.sku ? slugifyForUrl(product.sku) : product.id;
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://bss-japan.com";
+  const productUrl = `${siteUrl}/products/${cat.slug}/${breadcrumbEnd}`;
+  const ogImage = images[0]?.image_url ?? `${siteUrl}/logo.png`;
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.product_name,
+    ...(product.sku        ? { sku:         product.sku         } : {}),
+    ...(product.description ? { description: product.description } : {}),
+    image: ogImage,
+    brand: { "@type": "Brand", name: "BSS Beauty Salon Suppliers" },
+    url: productUrl,
+    ...(product.selling_price != null
+      ? {
+          offers: {
+            "@type": "Offer",
+            price: product.selling_price,
+            priceCurrency: "JPY",
+            availability:
+              product.stock_quantity > 0
+                ? "https://schema.org/InStock"
+                : "https://schema.org/OutOfStock",
+            url: productUrl,
+          },
+        }
+      : {}),
+  };
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-12">
+
+      {/* ── JSON-LD 構造化データ ── */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
+      />
 
       {/* ── パンくず ── */}
       <nav className="mb-10 flex items-center gap-2 text-[11px] text-neutral-600">
@@ -274,7 +307,7 @@ export default async function ProductDetailPage({
             <p className="text-[9px] font-medium tracking-[0.5em] text-neutral-600 uppercase">
               Price
             </p>
-            {product.selling_price != null ? (
+            {product.selling_price != null && product.selling_price > 0 ? (
               <>
                 <p className="mt-2 text-4xl font-light tracking-tight text-amber-400">
                   {formatYen(product.selling_price)}
@@ -367,6 +400,19 @@ export default async function ProductDetailPage({
             </a>
           )}
 
+          {/* ── カートに入れる（価格未設定商品は非表示） ── */}
+          {product.selling_price != null && product.selling_price > 0 && (
+            <AddToCartButton
+              productId={product.id}
+              productName={product.product_name}
+              sku={product.sku}
+              unitPrice={product.selling_price}
+              imageUrl={firstValidImageUrl}
+              categorySlug={cat.slug}
+              productSlug={breadcrumbEnd}
+            />
+          )}
+
           {/* ── 問い合わせ（モーダル+スティッキー統合） ── */}
           <InquirySection
             productId={product.id}
@@ -407,7 +453,7 @@ export default async function ProductDetailPage({
                   {/* 画像 */}
                   <Link href={relHref} className="block">
                     <div className="relative aspect-square overflow-hidden bg-neutral-950">
-                      {mainImg ? (
+                      {mainImg?.image_url ? (
                         <Image
                           src={mainImg.image_url}
                           alt={mainImg.alt_text ?? p.product_name}
