@@ -133,6 +133,7 @@ export default async function TopPage() {
       .select(SELECT_COLS)
       .not("category_id", "is", null)
       .eq("visibility", "public")
+      .order("created_at", { ascending: false })
       .limit(8);
     featured = (fallback ?? []) as unknown as ProductListItem[];
   }
