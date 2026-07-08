@@ -48,6 +48,7 @@ export type ProductDetail = {
   is_made_to_order: boolean;
   lead_time: string | null;
   pdf_url: string | null;
+  warranty: string | null;
   categories: Category | Category[] | null;
   product_images: ProductImage[];
 };

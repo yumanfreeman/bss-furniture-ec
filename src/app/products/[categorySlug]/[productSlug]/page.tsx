@@ -1,14 +1,14 @@
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { Clock, Palette, Ruler, ShieldCheck, Truck, type LucideIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { slugifyForUrl } from "@/lib/slugify";
 import { ImageGallery } from "./image-gallery";
 import { InstallationGallery } from "./installation-gallery";
 import { InquirySection } from "./inquiry-section";
 import { AddToCartButton } from "./add-to-cart-button";
-import { extractCategory } from "@/lib/types";
+import { ProductCard } from "@/components/product-card";
 import type { Category, ProductDetail, ProductImage, ProductListItem } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -155,7 +155,7 @@ export default async function ProductDetailPage({
     .select(
       "id, product_name, slug, sku, description, features, selling_price, " +
       "color, material, dimensions, width_mm, depth_mm, height_mm, " +
-      "status, stock_quantity, is_made_to_order, lead_time, pdf_url, " +
+      "status, stock_quantity, is_made_to_order, lead_time, pdf_url, warranty, " +
       "categories(id, name, slug), " +
       "product_images(id, image_url, image_type, alt_text, sort_order)"
     )
@@ -210,6 +210,23 @@ export default async function ProductDetailPage({
     (!hasDimensions && product.height_mm)  ? { label: "高さ",   value: `${product.height_mm} mm`          } : null,
     product.lead_time                      ? { label: "納期",   value: product.lead_time                  } : null,
   ].filter((s): s is { label: string; value: string } => s !== null);
+
+  // 商品情報サマリー（アイコン付き：納期・カラー・サイズ・保証・配送方法）
+  const sizeSummary =
+    product.dimensions ??
+    ([
+      product.width_mm  ? `幅${product.width_mm}mm`   : null,
+      product.depth_mm  ? `奥行${product.depth_mm}mm` : null,
+      product.height_mm ? `高さ${product.height_mm}mm` : null,
+    ].filter((v): v is string => !!v).join(" × ") || null);
+
+  const infoItems: { label: string; value: string; icon: LucideIcon }[] = [
+    product.lead_time ? { label: "納期",   value: product.lead_time, icon: Clock       } : null,
+    product.color     ? { label: "カラー", value: product.color,     icon: Palette     } : null,
+    sizeSummary        ? { label: "サイズ", value: sizeSummary,       icon: Ruler       } : null,
+    product.warranty  ? { label: "保証",   value: product.warranty,  icon: ShieldCheck } : null,
+    { label: "配送方法", value: "個別配送（送料は別途お見積り）", icon: Truck },
+  ].filter((s): s is { label: string; value: string; icon: LucideIcon } => s !== null);
 
   // パンくずの末尾は SKU slug（仕様通り）
   const breadcrumbEnd = product.sku ? slugifyForUrl(product.sku) : product.id;
@@ -325,6 +342,29 @@ export default async function ProductDetailPage({
             )}
           </div>
 
+          {/* 商品情報サマリー（アイコン付き：納期・カラー・サイズ・保証・配送方法） */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {infoItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <div
+                  key={item.label}
+                  className="flex items-start gap-2.5 rounded-xl border border-neutral-800 bg-neutral-900/40 px-4 py-3"
+                >
+                  <Icon size={16} className="mt-0.5 shrink-0 text-amber-500/70" />
+                  <div className="min-w-0">
+                    <p className="text-[9px] tracking-[0.2em] text-neutral-600 uppercase">
+                      {item.label}
+                    </p>
+                    <p className="mt-0.5 text-xs leading-snug text-neutral-300">
+                      {item.value}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           {/* 受注生産の注意書き */}
           {product.stock_quantity === 0 && product.is_made_to_order && (
             <p className="rounded-xl border border-amber-800/30 bg-amber-950/20 px-5 py-4 text-xs leading-relaxed text-amber-300/80">
@@ -435,87 +475,45 @@ export default async function ProductDetailPage({
         />
       )}
 
-      {/* ── 関連商品 ── */}
+      {/* ── この商品に合うおすすめ商品 ── */}
       {relatedProducts.length > 0 && (
         <section className="mt-24 border-t border-neutral-800/60 pt-16">
           <div className="mb-8">
             <p className="text-[9px] font-medium tracking-[0.5em] text-amber-500 uppercase">
-              Related Products
+              Recommended
             </p>
             <h2 className="mt-1 text-lg font-light tracking-wider text-neutral-300">
-              同カテゴリの商品
+              この商品に合うおすすめ商品
             </h2>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {relatedProducts.map((p) => {
-              const relCat = extractCategory(p.categories);
-              const relKey = p.sku ? slugifyForUrl(p.sku) : p.id;
-              const relHref = relCat
-                ? `/products/${relCat.slug}/${relKey}`
-                : "#";
-              const imgs = (p.product_images ?? []) as ProductImage[];
-              const mainImg =
-                imgs.find((i) => i.image_type === "main") ?? imgs[0];
-
-              return (
-                <div
-                  key={p.id}
-                  className="group flex flex-col overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 transition-all hover:border-amber-500/40 hover:shadow-[0_0_24px_rgba(201,168,76,0.08)]"
-                >
-                  {/* 画像 */}
-                  <Link href={relHref} className="block">
-                    <div className="relative aspect-square overflow-hidden bg-neutral-950">
-                      {mainImg?.image_url ? (
-                        <Image
-                          src={mainImg.image_url}
-                          alt={mainImg.alt_text ?? p.product_name}
-                          fill
-                          sizes="(max-width: 640px) 50vw, 25vw"
-                          className="object-contain p-3 transition-transform duration-300 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center font-mono text-[9px] text-neutral-800">
-                          NO IMAGE
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-
-                  {/* テキスト情報 */}
-                  <div className="flex flex-1 flex-col gap-2 p-3">
-                    <Link href={relHref}>
-                      <p className="line-clamp-2 text-xs font-medium leading-snug text-neutral-300 transition-colors group-hover:text-amber-300">
-                        {p.product_name}
-                      </p>
-                    </Link>
-                    {p.sku && (
-                      <p className="font-mono text-[9px] text-neutral-700">
-                        {p.sku}
-                      </p>
-                    )}
-
-                    {/* 価格 */}
-                    <p className="mt-auto pt-1 text-xs font-medium text-amber-400">
-                      {p.selling_price != null
-                        ? formatYen(p.selling_price)
-                        : <span className="text-[10px] font-normal text-neutral-600">価格はお問い合わせください</span>
-                      }
-                    </p>
-
-                    {/* 詳細を見るボタン */}
-                    <Link
-                      href={relHref}
-                      className="mt-1 block rounded-lg border border-neutral-700 py-1.5 text-center text-[10px] font-medium tracking-wide text-neutral-400 transition-colors hover:border-amber-500/60 hover:text-amber-400"
-                    >
-                      詳細を見る
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
+            {relatedProducts.map((p) => (
+              <ProductCard key={p.id} p={p} />
+            ))}
           </div>
         </section>
       )}
+
+      {/* ── 無料レイアウト相談 CTA ── */}
+      <section className="mt-24 overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-br from-neutral-900 via-neutral-950 to-black px-8 py-16 text-center">
+        <p className="mb-4 text-[10px] font-medium tracking-[0.6em] text-amber-500 uppercase">
+          Free Consultation
+        </p>
+        <h2 className="text-2xl font-light tracking-wider text-neutral-100 sm:text-3xl">
+          無料レイアウト相談
+        </h2>
+        <p className="mx-auto mt-5 max-w-md text-sm leading-[1.9] text-neutral-500">
+          サロンの導線設計やレイアウトのご相談も承っております。
+          理想の空間づくりを、BSSが一貫してサポートします。
+        </p>
+        <div className="mx-auto my-8 h-px w-16 bg-amber-500/40" />
+        <Link
+          href="/contact"
+          className="inline-flex items-center gap-2 bg-amber-500 px-10 py-4 text-xs font-medium tracking-[0.3em] text-neutral-950 uppercase transition-colors hover:bg-amber-400"
+        >
+          無料相談を申し込む
+        </Link>
+      </section>
 
       {/* スティッキーバー分の余白 */}
       <div className="h-24" />
