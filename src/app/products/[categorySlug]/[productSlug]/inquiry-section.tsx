@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Mail, FileText, X, Loader2 } from "lucide-react";
+import { Mail, FileText, X, Loader2, ShoppingCart } from "lucide-react";
+import Link from "next/link";
 import { submitInquiry } from "./actions";
 
 type InquiryType = "inquiry" | "quote";
@@ -116,10 +117,18 @@ export function InquirySection({
           showSticky ? "translate-y-0" : "translate-y-full"
         }`}
       >
-        <div className="mx-auto flex max-w-6xl items-center gap-3 px-6 py-3">
+        <div className="mx-auto flex max-w-6xl items-center gap-2 px-6 py-3">
           <p className="hidden min-w-0 flex-1 truncate font-mono text-[11px] text-neutral-600 sm:block">
             {sku ?? productName}
           </p>
+          {/* カートを見る */}
+          <Link
+            href="/cart"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-amber-500/60 bg-amber-500/10 px-4 py-2.5 text-xs font-medium text-amber-400 transition-colors hover:bg-amber-500/20 sm:flex-none"
+          >
+            <ShoppingCart size={13} />
+            カートを見る
+          </Link>
           <button
             onClick={() => openModal("inquiry")}
             className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-neutral-950 transition-colors hover:bg-amber-400 sm:flex-none"
