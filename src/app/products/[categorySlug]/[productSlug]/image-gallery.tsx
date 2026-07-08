@@ -11,27 +11,32 @@ type Props = {
 };
 
 export function ImageGallery({ images, productName }: Props) {
-  const mainImg = images.find((i) => i.image_type === "main") ?? images[0];
+  // image_url が null/空のレコードを除外（SSR クラッシュ防止）
+  const validImages = images.filter(
+    (img): img is ProductImage & { image_url: string } => !!img.image_url,
+  );
+
+  const mainImg = validImages.find((i) => i.image_type === "main") ?? validImages[0];
   const [selectedId, setSelectedId] = useState<string | null>(mainImg?.id ?? null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
-  const selectedIndex = images.findIndex((i) => i.id === selectedId);
-  const selected = images[selectedIndex] ?? images[0];
+  const selectedIndex = validImages.findIndex((i) => i.id === selectedId);
+  const selected = validImages[selectedIndex] ?? validImages[0];
 
   const openLightbox = () => setLightboxOpen(true);
   const closeLightbox = () => setLightboxOpen(false);
 
   const goPrev = useCallback(() => {
-    if (images.length < 2) return;
-    const prevIndex = (selectedIndex - 1 + images.length) % images.length;
-    setSelectedId(images[prevIndex].id);
-  }, [images, selectedIndex]);
+    if (validImages.length < 2) return;
+    const prevIndex = (selectedIndex - 1 + validImages.length) % validImages.length;
+    setSelectedId(validImages[prevIndex].id);
+  }, [validImages, selectedIndex]);
 
   const goNext = useCallback(() => {
-    if (images.length < 2) return;
-    const nextIndex = (selectedIndex + 1) % images.length;
-    setSelectedId(images[nextIndex].id);
-  }, [images, selectedIndex]);
+    if (validImages.length < 2) return;
+    const nextIndex = (selectedIndex + 1) % validImages.length;
+    setSelectedId(validImages[nextIndex].id);
+  }, [validImages, selectedIndex]);
 
   // キーボード操作（ESC で閉じる・矢印キーで切替）
   useEffect(() => {
@@ -51,7 +56,7 @@ export function ImageGallery({ images, productName }: Props) {
     return () => { document.body.style.overflow = ""; };
   }, [lightboxOpen]);
 
-  if (images.length === 0) {
+  if (validImages.length === 0) {
     return (
       <div className="relative aspect-square overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950">
         <div className="flex h-full flex-col items-center justify-center gap-2 text-neutral-700">
@@ -88,9 +93,9 @@ export function ImageGallery({ images, productName }: Props) {
         </button>
 
         {/* ── サムネイル（複数枚のみ） ── */}
-        {images.length > 1 && (
+        {validImages.length > 1 && (
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {images.map((img) => {
+            {validImages.map((img, i) => {
               const isActive = img.id === selectedId;
               return (
                 <button
@@ -102,7 +107,7 @@ export function ImageGallery({ images, productName }: Props) {
                       ? "border-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.3)]"
                       : "border-neutral-800 hover:border-neutral-600"
                   }`}
-                  aria-label={img.alt_text ?? `画像 ${images.indexOf(img) + 1}`}
+                  aria-label={img.alt_text ?? `画像 ${i + 1}`}
                 >
                   <Image
                     src={img.image_url}
@@ -118,9 +123,9 @@ export function ImageGallery({ images, productName }: Props) {
         )}
 
         {/* 枚数インジケーター */}
-        {images.length > 1 && (
+        {validImages.length > 1 && (
           <p className="text-center font-mono text-[10px] text-neutral-700">
-            {selectedIndex + 1} / {images.length}
+            {selectedIndex + 1} / {validImages.length}
           </p>
         )}
       </div>
@@ -142,14 +147,14 @@ export function ImageGallery({ images, productName }: Props) {
           </button>
 
           {/* 枚数表示 */}
-          {images.length > 1 && (
+          {validImages.length > 1 && (
             <p className="absolute top-5 left-1/2 -translate-x-1/2 font-mono text-[11px] text-neutral-600">
-              {selectedIndex + 1} / {images.length}
+              {selectedIndex + 1} / {validImages.length}
             </p>
           )}
 
           {/* 前へ */}
-          {images.length > 1 && (
+          {validImages.length > 1 && (
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); goPrev(); }}
@@ -161,7 +166,7 @@ export function ImageGallery({ images, productName }: Props) {
           )}
 
           {/* 次へ */}
-          {images.length > 1 && (
+          {validImages.length > 1 && (
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); goNext(); }}
@@ -189,12 +194,12 @@ export function ImageGallery({ images, productName }: Props) {
           </div>
 
           {/* モバイル：下部サムネイル */}
-          {images.length > 1 && (
+          {validImages.length > 1 && (
             <div
               className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2 overflow-x-auto px-4"
               onClick={(e) => e.stopPropagation()}
             >
-              {images.map((img, i) => {
+              {validImages.map((img, i) => {
                 const isActive = img.id === selectedId;
                 return (
                   <button
