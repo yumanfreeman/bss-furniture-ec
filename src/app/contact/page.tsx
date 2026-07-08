@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ContactForm } from "./contact-form";
 
 export const metadata: Metadata = {
   title: "Contact | BSS Beauty Salon Suppliers",
@@ -47,9 +48,6 @@ const TOPICS: {
     accent: "from-amber-900/30 to-transparent",
   },
 ];
-
-const inputCls =
-  "w-full border border-neutral-800 bg-neutral-900 px-4 py-3 text-sm text-neutral-200 placeholder-neutral-600 outline-none transition-colors focus:border-amber-500/60";
 
 export default function ContactPage() {
   return (
@@ -118,7 +116,7 @@ export default function ContactPage() {
         </div>
       </section>
 
-      {/* ── お問い合わせフォーム（静的UI） ── */}
+      {/* ── お問い合わせフォーム ── */}
       <section className="border-t border-neutral-800 px-6 py-28">
         <div className="mx-auto max-w-2xl">
 
@@ -131,74 +129,7 @@ export default function ContactPage() {
             </h2>
           </div>
 
-          <form className="space-y-6">
-            <div>
-              <label
-                htmlFor="name"
-                className="mb-2 block text-[11px] tracking-[0.2em] text-neutral-400 uppercase"
-              >
-                お名前
-              </label>
-              <input
-                id="name"
-                type="text"
-                className={inputCls}
-                placeholder="山田 花子"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="company"
-                className="mb-2 block text-[11px] tracking-[0.2em] text-neutral-400 uppercase"
-              >
-                会社名 / サロン名
-              </label>
-              <input
-                id="company"
-                type="text"
-                className={inputCls}
-                placeholder="株式会社〇〇 / サロン〇〇"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="email"
-                className="mb-2 block text-[11px] tracking-[0.2em] text-neutral-400 uppercase"
-              >
-                メールアドレス
-              </label>
-              <input
-                id="email"
-                type="email"
-                className={inputCls}
-                placeholder="example@email.com"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="message"
-                className="mb-2 block text-[11px] tracking-[0.2em] text-neutral-400 uppercase"
-              >
-                相談内容
-              </label>
-              <textarea
-                id="message"
-                rows={6}
-                className={`${inputCls} resize-none`}
-                placeholder="ご相談内容をご記入ください"
-              />
-            </div>
-
-            <button
-              type="button"
-              className="w-full bg-amber-500 px-12 py-4 text-xs font-medium tracking-[0.3em] text-neutral-950 uppercase transition-colors hover:bg-amber-400"
-            >
-              送信する
-            </button>
-          </form>
+          <ContactForm />
 
         </div>
       </section>
