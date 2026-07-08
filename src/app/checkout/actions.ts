@@ -85,8 +85,31 @@ export async function submitOrder(
     .insert(itemRows);
 
   if (itemErr) {
-    // ヘッダだけ残るがクリティカルではない
     console.error("[submitOrder] items insert error:", itemErr.message);
+
+    // 明細の保存に失敗した場合は注文全体を失敗として扱う。
+    // ec_orders だけが残る（親注文はあるが明細が空）状態を避けるため削除を試みる。
+    // ただし anon key の RLS 設計上 DELETE が許可されていない可能性があるため、
+    // 削除に失敗しても致命的エラーにはせず、ユーザーには通常の失敗として返す
+    // （残ってしまった場合は管理画面側で手動確認・削除が必要）。
+    const { error: rollbackErr } = await supabase
+      .from("ec_orders")
+      .delete()
+      .eq("id", orderId);
+
+    if (rollbackErr) {
+      console.error(
+        "[submitOrder] failed to rollback orphaned order (manual cleanup may be required):",
+        orderId,
+        rollbackErr.message,
+      );
+    }
+
+    return {
+      orderNumber: null,
+      orderId: null,
+      error: "注文の送信に失敗しました。お手数ですが、もう一度お試しください。",
+    };
   }
 
   return { orderNumber, orderId, error: null };

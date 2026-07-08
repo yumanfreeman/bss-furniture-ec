@@ -64,11 +64,14 @@ export default function CartPage() {
           {/* 商品リスト */}
           <div className="divide-y divide-neutral-800">
             {items.map((item) => (
-              <div key={item.productId} className="flex items-center gap-5 py-6">
+              <div
+                key={item.productId}
+                className="flex flex-wrap items-center gap-4 py-6 sm:flex-nowrap sm:gap-5"
+              >
                 {/* 画像 */}
                 <Link
                   href={`/products/${item.categorySlug}/${item.productSlug}`}
-                  className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900"
+                  className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900 sm:h-20 sm:w-20"
                 >
                   {item.imageUrl ? (
                     <Image
@@ -86,7 +89,7 @@ export default function CartPage() {
                 </Link>
 
                 {/* 商品情報 */}
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <Link
                     href={`/products/${item.categorySlug}/${item.productSlug}`}
                     className="text-sm font-medium text-neutral-200 hover:text-amber-400 line-clamp-2"
@@ -101,41 +104,44 @@ export default function CartPage() {
                   </p>
                 </div>
 
-                {/* 数量 */}
-                <div className="flex items-center gap-2 shrink-0">
+                {/* 数量・小計・削除（モバイルは折り返して1行、PCは既存レイアウトを維持） */}
+                <div className="flex w-full items-center justify-between gap-4 sm:w-auto sm:contents">
+                  {/* 数量 */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => handleQuantity(item.productId, item.quantity - 1)}
+                      className="flex h-7 w-7 items-center justify-center rounded border border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200"
+                    >
+                      <Minus size={12} />
+                    </button>
+                    <span className="w-8 text-center text-sm text-neutral-200">
+                      {item.quantity}
+                    </span>
+                    <button
+                      onClick={() => handleQuantity(item.productId, item.quantity + 1)}
+                      className="flex h-7 w-7 items-center justify-center rounded border border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200"
+                    >
+                      <Plus size={12} />
+                    </button>
+                  </div>
+
+                  {/* 小計 */}
+                  <div className="shrink-0 text-right sm:w-24">
+                    <p className="text-sm text-neutral-300">
+                      {item.unitPrice !== null
+                        ? formatYen(item.unitPrice * item.quantity)
+                        : "—"}
+                    </p>
+                  </div>
+
+                  {/* 削除 */}
                   <button
-                    onClick={() => handleQuantity(item.productId, item.quantity - 1)}
-                    className="flex h-7 w-7 items-center justify-center rounded border border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200"
+                    onClick={() => handleRemove(item.productId)}
+                    className="shrink-0 text-neutral-700 hover:text-red-400 transition-colors"
                   >
-                    <Minus size={12} />
-                  </button>
-                  <span className="w-8 text-center text-sm text-neutral-200">
-                    {item.quantity}
-                  </span>
-                  <button
-                    onClick={() => handleQuantity(item.productId, item.quantity + 1)}
-                    className="flex h-7 w-7 items-center justify-center rounded border border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200"
-                  >
-                    <Plus size={12} />
+                    <Trash2 size={15} />
                   </button>
                 </div>
-
-                {/* 小計 */}
-                <div className="w-24 shrink-0 text-right">
-                  <p className="text-sm text-neutral-300">
-                    {item.unitPrice !== null
-                      ? formatYen(item.unitPrice * item.quantity)
-                      : "—"}
-                  </p>
-                </div>
-
-                {/* 削除 */}
-                <button
-                  onClick={() => handleRemove(item.productId)}
-                  className="shrink-0 text-neutral-700 hover:text-red-400 transition-colors"
-                >
-                  <Trash2 size={15} />
-                </button>
               </div>
             ))}
           </div>

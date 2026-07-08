@@ -3,6 +3,7 @@ import "./globals.css";
 import Link from "next/link";
 import Image from "next/image";
 import { CartButton } from "@/components/cart-button";
+import { MobileNav } from "@/components/mobile-nav";
 
 export const metadata: Metadata = {
   title: "BSS | Beauty Salon Suppliers",
@@ -14,7 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ja">
       <body>
         {/* ── ヘッダー ── */}
-        <header className="sticky top-0 z-50 border-b border-neutral-800 bg-neutral-950/90 backdrop-blur-sm">
+        <header className="sticky top-0 z-50 border-b border-neutral-800 bg-neutral-950/90 backdrop-blur-sm relative">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
             <Link href="/" className="flex items-center">
               <Image
@@ -26,12 +27,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 className="h-10 w-auto object-contain"
               />
             </Link>
-            <nav className="flex items-center gap-4 text-sm">
+
+            {/* デスクトップナビ */}
+            <nav className="hidden items-center gap-4 text-sm md:flex">
               <CartButton />
               <Link href="/products" className="text-neutral-400 transition-colors hover:text-amber-400">
                 商品一覧
               </Link>
             </nav>
+
+            {/* モバイルナビ（カート + ハンバーガーメニュー） */}
+            <div className="flex items-center gap-1 md:hidden">
+              <CartButton />
+              <MobileNav />
+            </div>
           </div>
         </header>
 
