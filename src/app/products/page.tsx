@@ -1,13 +1,30 @@
 import Link from "next/link";
 import Image from "next/image";
+import type { Metadata } from "next";
 import { Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { sortCategories } from "@/lib/category-order";
+import { sortCategories, getCategoryPriorityByNameSlug } from "@/lib/category-order";
 import { extractCategory } from "@/lib/types";
 import { slugifyForUrl } from "@/lib/slugify";
 import type { Category, ProductListItem } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+const PRODUCTS_TITLE = "商品一覧 | BSS Beauty Salon Suppliers";
+const PRODUCTS_DESCRIPTION =
+  "セット椅子・シャンプー台・ミラー・ワゴンなど、美容室向け業務用家具の商品一覧です。";
+
+export const metadata: Metadata = {
+  title: PRODUCTS_TITLE,
+  description: PRODUCTS_DESCRIPTION,
+  alternates: { canonical: "/products" },
+  openGraph: {
+    title: PRODUCTS_TITLE,
+    description: PRODUCTS_DESCRIPTION,
+    url: "/products",
+    type: "website",
+  },
+};
 
 function formatYen(n: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY" }).format(n);
@@ -17,6 +34,61 @@ function productHref(catSlug: string | undefined, p: ProductListItem): string {
   if (!catSlug) return "#";
   const key = p.sku ? slugifyForUrl(p.sku) : p.id;
   return `/products/${catSlug}/${key}`;
+}
+
+function ProductCard({ p }: { p: ProductListItem }) {
+  const cat = extractCategory(p.categories);
+  const imgs = p.product_images ?? [];
+  const mainImg =
+    imgs.find((i) => i.image_type === "main") ??
+    imgs.slice().sort((a, b) => a.sort_order - b.sort_order)[0];
+  const href = productHref(cat?.slug, p);
+
+  return (
+    <Link
+      href={href}
+      className="group flex flex-col overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 transition-all hover:border-amber-500/40 hover:shadow-[0_0_24px_rgba(201,168,76,0.08)]"
+    >
+      <div className="relative aspect-square overflow-hidden bg-neutral-950">
+        {mainImg?.image_url ? (
+          <Image
+            src={mainImg.image_url}
+            alt={mainImg.alt_text ?? p.product_name}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1280px) 33vw, 25vw"
+            className="object-contain p-3 transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center font-mono text-[9px] text-neutral-800">
+            NO IMAGE
+          </div>
+        )}
+      </div>
+      <div className="flex flex-1 flex-col gap-1.5 p-3">
+        {cat?.slug && (
+          <span className="font-mono text-[9px] text-amber-600/70">{cat.slug}</span>
+        )}
+        <p className="line-clamp-2 text-xs font-medium leading-snug text-neutral-200 transition-colors group-hover:text-amber-300">
+          {p.product_name}
+        </p>
+        {p.sku && (
+          <p className="font-mono text-[9px] text-neutral-700">{p.sku}</p>
+        )}
+        <p className="mt-auto pt-1.5 text-sm font-semibold text-amber-400">
+          {p.selling_price != null ? (
+            formatYen(p.selling_price)
+          ) : (
+            <span className="text-[10px] font-normal text-neutral-600">
+              価格はお問い合わせください
+            </span>
+          )}
+        </p>
+        <span className="mt-1 block rounded-lg border border-neutral-800 py-1.5 text-center text-[10px] font-medium tracking-wide text-neutral-500 transition-colors group-hover:border-amber-500/50 group-hover:text-amber-400">
+          詳細を見る →
+        </span>
+      </div>
+    </Link>
+  );
 }
 
 export default async function ProductsPage({
@@ -43,7 +115,7 @@ export default async function ProductsPage({
     )
     .not("category_id", "is", null)
     .eq("visibility", "public")
-    .order("product_name");
+    .order("sku", { ascending: true, nullsFirst: false });
 
   if (keyword) {
     productQuery = productQuery.or(
@@ -54,7 +126,33 @@ export default async function ProductsPage({
   const { data: productsData } = await productQuery;
 
   const categories = sortCategories((categoriesData ?? []) as Category[]);
-  const products = (productsData ?? []) as unknown as ProductListItem[];
+  const rawProducts = (productsData ?? []) as unknown as ProductListItem[];
+
+  // カテゴリ優先度順 → SKU昇順 でクライアントソート
+  const products = [...rawProducts].sort((a, b) => {
+    const catA = extractCategory(a.categories);
+    const catB = extractCategory(b.categories);
+    const priA = getCategoryPriorityByNameSlug(catA?.name, catA?.slug);
+    const priB = getCategoryPriorityByNameSlug(catB?.name, catB?.slug);
+    if (priA !== priB) return priA - priB;
+    return (a.sku ?? "").localeCompare(b.sku ?? "");
+  });
+
+  // 非検索時：カテゴリ別グループを構築（ソート済みなので順番通りに追記）
+  type Group = { cat: Category; items: ProductListItem[] };
+  const groups: Group[] = [];
+  if (!keyword) {
+    for (const p of products) {
+      const cat = extractCategory(p.categories);
+      if (!cat) continue;
+      const last = groups[groups.length - 1];
+      if (last && last.cat.slug === cat.slug) {
+        last.items.push(p);
+      } else {
+        groups.push({ cat: cat as Category, items: [p] });
+      }
+    }
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
@@ -150,7 +248,6 @@ export default async function ProductsPage({
 
         {/* ── 商品グリッド ── */}
         <div className="min-w-0 flex-1">
-          {/* 件数 / 検索結果ラベル */}
           <p className="mb-4 text-xs text-neutral-600">
             {keyword ? (
               <>
@@ -169,85 +266,38 @@ export default async function ProductsPage({
                 {keyword ? `「${keyword}」に一致する商品が見つかりません` : "公開中の商品がありません"}
               </p>
               {keyword && (
-                <Link
-                  href="/products"
-                  className="mt-4 text-xs text-amber-500 hover:text-amber-400"
-                >
+                <Link href="/products" className="mt-4 text-xs text-amber-500 hover:text-amber-400">
                   ← すべての商品を表示
                 </Link>
               )}
             </div>
+          ) : keyword ? (
+            /* 検索結果：フラットグリッド */
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+              {products.map((p) => (
+                <ProductCard key={p.id} p={p} />
+              ))}
+            </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
-              {products.map((p) => {
-                const cat = extractCategory(p.categories);
-                const imgs = p.product_images ?? [];
-                const mainImg =
-                  imgs.find((i) => i.image_type === "main") ??
-                  imgs.slice().sort((a, b) => a.sort_order - b.sort_order)[0];
-                const href = productHref(cat?.slug, p);
-
-                return (
-                  <Link
-                    key={p.id}
-                    href={href}
-                    className="group flex flex-col overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 transition-all hover:border-amber-500/40 hover:shadow-[0_0_24px_rgba(201,168,76,0.08)]"
-                  >
-                    {/* 画像 */}
-                    <div className="relative aspect-square overflow-hidden bg-neutral-950">
-                      {mainImg ? (
-                        <Image
-                          src={mainImg.image_url}
-                          alt={mainImg.alt_text ?? p.product_name}
-                          fill
-                          sizes="(max-width: 640px) 50vw, (max-width: 1280px) 33vw, 25vw"
-                          className="object-contain p-3 transition-transform duration-300 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center font-mono text-[9px] text-neutral-800">
-                          NO IMAGE
-                        </div>
-                      )}
-                    </div>
-
-                    {/* テキスト情報 */}
-                    <div className="flex flex-1 flex-col gap-1.5 p-3">
-                      {/* カテゴリ slug */}
-                      {cat?.slug && (
-                        <span className="font-mono text-[9px] text-amber-600/70">
-                          {cat.slug}
-                        </span>
-                      )}
-
-                      {/* 商品名 */}
-                      <p className="line-clamp-2 text-xs font-medium leading-snug text-neutral-200 transition-colors group-hover:text-amber-300">
-                        {p.product_name}
-                      </p>
-
-                      {/* SKU */}
-                      {p.sku && (
-                        <p className="font-mono text-[9px] text-neutral-700">{p.sku}</p>
-                      )}
-
-                      {/* 価格 */}
-                      <p className="mt-auto pt-1.5 text-sm font-semibold text-amber-400">
-                        {p.selling_price != null ? (
-                          formatYen(p.selling_price)
-                        ) : (
-                          <span className="text-[10px] font-normal text-neutral-600">
-                            価格はお問い合わせください
-                          </span>
-                        )}
-                      </p>
-
-                      {/* 詳細を見るボタン（span — 外側の Link で遷移） */}
-                      <span className="mt-1 block rounded-lg border border-neutral-800 py-1.5 text-center text-[10px] font-medium tracking-wide text-neutral-500 transition-colors group-hover:border-amber-500/50 group-hover:text-amber-400">
-                        詳細を見る →
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
+            /* 通常表示：カテゴリ別グループ */
+            <div className="space-y-10">
+              {groups.map(({ cat, items }) => (
+                <section key={cat.id}>
+                  <div className="mb-3 flex items-center gap-3 border-b border-neutral-800/50 pb-2">
+                    <p className="font-mono text-[10px] font-medium tracking-[0.3em] text-amber-500/80 uppercase">
+                      {cat.slug}
+                    </p>
+                    <span className="font-mono text-[9px] text-neutral-700">
+                      {items.length}件
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                    {items.map((p) => (
+                      <ProductCard key={p.id} p={p} />
+                    ))}
+                  </div>
+                </section>
+              ))}
             </div>
           )}
         </div>

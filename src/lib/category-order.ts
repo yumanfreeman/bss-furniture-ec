@@ -1,39 +1,26 @@
 /**
- * カテゴリ表示順の共通定義 — bss-furniture-admin と共通ロジック
+ * カテゴリ表示順の共通定義
  */
 
 export const CATEGORY_ORDER: Record<string, number> = {
-  "chair":            100,
-  "mirror":           200,
-  "shampoo":          300,
-  "recline-chair":    400,
-  "trolley":          500,
-  "beauty-bed":       600,
-  "sofa":             700,
-  "stool":            800,
-  "barber-chair":     900,
-  "shampoo-chair":   1000,
-  "shampoo-backwash":1100,
-  "mirror-only":     1200,
-  "other":           1300,
-  "accessories":     9999,
+  // DBの実スラッグ（英語）— 希望表示順
+  "salon-chair":       100,
+  "barber-chair":      200,
+  "recline-chair":     300,
+  "beauty-bed":        400,
+  "shampoo-chair":     500,
+  "shampoo-backwash":  600,
+  "mirror":            700,
+  "stool":             800,
+  "trolley":           900,
+  "sofa":             1000,
+  "other":            1100,
+  "mirror-only":      1200,
+  "accessories":      1300,
 
-  // 日本語 name 後方互換
-  "セットチェア": 100,
-  "椅子":         100,
-  "セット面":     200,
-  "シャンプー台": 300,
-  "リクライニングチェア": 400,
-  "ワゴン":       500,
-  "ビューティーベッド": 600,
-  "ソファ":       700,
-  "スツール":     800,
-  "バーバーチェア": 900,
-  "シャンプーチェア": 1000,
-  "シャンプーバックウォッシュ": 1100,
-  "ミラー":       1200,
-  "その他":       1300,
-  "Accessories":  9999,
+  // 後方互換（旧スラッグ）
+  "chair":             100,
+  "shampoo":           500,
 };
 
 export function getCategoryPriorityByNameSlug(
