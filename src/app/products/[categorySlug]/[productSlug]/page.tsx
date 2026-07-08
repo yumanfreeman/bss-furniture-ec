@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { slugifyForUrl } from "@/lib/slugify";
 import { ImageGallery } from "./image-gallery";
+import { InstallationGallery } from "./installation-gallery";
 import { InquirySection } from "./inquiry-section";
 import { AddToCartButton } from "./add-to-cart-button";
 import { extractCategory } from "@/lib/types";
@@ -194,6 +195,9 @@ export default async function ProductDetailPage({
   // image_url が null のレコードを除いた最初の有効な画像URL
   const firstValidImageUrl =
     images.find((img) => !!img.image_url)?.image_url ?? null;
+
+  // サロン設置イメージ（image_type === 'usage'）
+  const installationImages = images.filter((img) => img.image_type === "usage");
 
   // dimensions がある場合は個別の幅/奥行/高さ行を非表示（重複防止）
   const hasDimensions = !!product.dimensions;
@@ -422,6 +426,14 @@ export default async function ProductDetailPage({
           />
         </div>
       </div>
+
+      {/* ── サロン設置イメージ（image_type === 'usage' の画像がある場合のみ） ── */}
+      {installationImages.length > 0 && (
+        <InstallationGallery
+          images={installationImages}
+          productName={product.product_name}
+        />
+      )}
 
       {/* ── 関連商品 ── */}
       {relatedProducts.length > 0 && (
