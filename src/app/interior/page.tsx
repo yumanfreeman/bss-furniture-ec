@@ -1,10 +1,20 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 
+const INTERIOR_TITLE = "Interior Design & Renovation | BSS Beauty Salon Suppliers";
+const INTERIOR_DESCRIPTION =
+  "美容室のコンセプト設計から内装デザイン・リフォーム・家具選定まで。BSSはサロン空間づくりを一貫してサポートします。";
+
 export const metadata: Metadata = {
-  title: "Interior Design & Renovation | BSS Beauty Salon Suppliers",
-  description:
-    "美容室のコンセプト設計から内装デザイン・リフォーム・家具選定まで。BSSはサロン空間づくりを一貫してサポートします。",
+  title: INTERIOR_TITLE,
+  description: INTERIOR_DESCRIPTION,
+  alternates: { canonical: "/interior" },
+  openGraph: {
+    title: INTERIOR_TITLE,
+    description: INTERIOR_DESCRIPTION,
+    url: "/interior",
+    type: "website",
+  },
 };
 
 const SERVICES: {

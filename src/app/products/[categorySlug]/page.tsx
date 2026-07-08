@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { sortCategories } from "@/lib/category-order";
 import { extractCategory } from "@/lib/types";
@@ -8,6 +9,40 @@ import { slugifyForUrl } from "@/lib/slugify";
 import type { Category, ProductListItem } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+// ── SEO メタデータ（カテゴリごとに動的生成） ──────────────
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ categorySlug: string }>;
+}): Promise<Metadata> {
+  const { categorySlug } = await params;
+  const supabase = createClient();
+
+  const { data: cat } = await supabase
+    .from("categories")
+    .select("name, slug")
+    .eq("slug", categorySlug)
+    .single();
+
+  if (!cat) return { title: "BSS Beauty Salon Suppliers" };
+
+  const title = `${cat.name} | BSS Beauty Salon Suppliers`;
+  const description = `BSS Beauty Salon Suppliersが取り扱う${cat.name}（美容家具）の一覧です。`;
+  const canonicalUrl = `/products/${cat.slug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: canonicalUrl },
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      type: "website",
+    },
+  };
+}
 
 function formatYen(n: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY" }).format(n);
@@ -38,7 +73,7 @@ export default async function CategoryPage({
       )
       .not("category_id", "is", null)
       .eq("visibility", "public")
-      .order("product_name"),
+      .order("sku", { ascending: true, nullsFirst: false }),
   ]);
 
   if (!catData) notFound();

@@ -5,9 +5,31 @@ import Image from "next/image";
 import { CartButton } from "@/components/cart-button";
 import { MobileNav } from "@/components/mobile-nav";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://bss-japan.com";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
+  // 各ページは "◯◯ | BSS Beauty Salon Suppliers" の形式で個別にtitleを指定するため、
+  // ここではtemplateを使わずルート用のデフォルト値のみ設定する
+  // （templateにすると既存ページのtitleに接尾辞が二重に付いてしまうため）
   title: "BSS | Beauty Salon Suppliers",
   description: "業務用美容家具・美容器具の卸販売",
+  alternates: { canonical: "/" },
+  openGraph: {
+    siteName: "BSS Beauty Salon Suppliers",
+    title: "BSS | Beauty Salon Suppliers",
+    description: "業務用美容家具・美容器具の卸販売",
+    url: "/",
+    type: "website",
+    locale: "ja_JP",
+    images: [{ url: "/logo.png", width: 640, height: 512, alt: "BSS Beauty Salon Suppliers" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "BSS | Beauty Salon Suppliers",
+    description: "業務用美容家具・美容器具の卸販売",
+    images: ["/logo.png"],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

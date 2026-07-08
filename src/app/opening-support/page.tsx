@@ -1,10 +1,20 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 
+const OPENING_SUPPORT_TITLE = "Opening Support | BSS Beauty Salon Suppliers";
+const OPENING_SUPPORT_DESCRIPTION =
+  "美容室の開業に必要な家具選定、内装設計、導線計画、納品スケジュールまで。BSSが理想のサロンづくりを一貫してサポートします。";
+
 export const metadata: Metadata = {
-  title: "Opening Support | BSS Beauty Salon Suppliers",
-  description:
-    "美容室の開業に必要な家具選定、内装設計、導線計画、納品スケジュールまで。BSSが理想のサロンづくりを一貫してサポートします。",
+  title: OPENING_SUPPORT_TITLE,
+  description: OPENING_SUPPORT_DESCRIPTION,
+  alternates: { canonical: "/opening-support" },
+  openGraph: {
+    title: OPENING_SUPPORT_TITLE,
+    description: OPENING_SUPPORT_DESCRIPTION,
+    url: "/opening-support",
+    type: "website",
+  },
 };
 
 const SUPPORTS: {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { sortCategories } from "@/lib/category-order";
 import { extractCategory } from "@/lib/types";
@@ -7,6 +8,22 @@ import { slugifyForUrl } from "@/lib/slugify";
 import type { Category, ProductListItem } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+const TOP_TITLE = "BSS Beauty Salon Suppliers | 美容家具・美容器具の卸販売";
+const TOP_DESCRIPTION =
+  "セット椅子・シャンプー台・ミラー・ワゴンなど美容家具の卸販売。内装デザイン・リフォーム・開業支援までワンストップでサポートするBSS Beauty Salon Suppliers。";
+
+export const metadata: Metadata = {
+  title: TOP_TITLE,
+  description: TOP_DESCRIPTION,
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: TOP_TITLE,
+    description: TOP_DESCRIPTION,
+    url: "/",
+    type: "website",
+  },
+};
 
 function formatYen(n: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY" }).format(n);

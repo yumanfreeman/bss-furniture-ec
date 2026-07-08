@@ -1,10 +1,20 @@
 import type { Metadata } from "next";
 import { ContactForm } from "./contact-form";
 
+const CONTACT_TITLE = "Contact | BSS Beauty Salon Suppliers";
+const CONTACT_DESCRIPTION =
+  "美容家具の導入、内装デザイン、リフォーム、開業支援についてお気軽にご相談ください。";
+
 export const metadata: Metadata = {
-  title: "Contact | BSS Beauty Salon Suppliers",
-  description:
-    "美容家具の導入、内装デザイン、リフォーム、開業支援についてお気軽にご相談ください。",
+  title: CONTACT_TITLE,
+  description: CONTACT_DESCRIPTION,
+  alternates: { canonical: "/contact" },
+  openGraph: {
+    title: CONTACT_TITLE,
+    description: CONTACT_DESCRIPTION,
+    url: "/contact",
+    type: "website",
+  },
 };
 
 const TOPICS: {

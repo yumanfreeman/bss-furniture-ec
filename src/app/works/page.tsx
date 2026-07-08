@@ -1,10 +1,20 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 
+const WORKS_TITLE = "Works | BSS Beauty Salon Suppliers";
+const WORKS_DESCRIPTION =
+  "BSSの施工事例。美容家具の納品だけでなく、内装設計・リフォーム・開業支援まで一貫してサポートするサロン空間ブランドです。";
+
 export const metadata: Metadata = {
-  title: "Works | BSS Beauty Salon Suppliers",
-  description:
-    "BSSの施工事例。美容家具の納品だけでなく、内装設計・リフォーム・開業支援まで一貫してサポートするサロン空間ブランドです。",
+  title: WORKS_TITLE,
+  description: WORKS_DESCRIPTION,
+  alternates: { canonical: "/works" },
+  openGraph: {
+    title: WORKS_TITLE,
+    description: WORKS_DESCRIPTION,
+    url: "/works",
+    type: "website",
+  },
 };
 
 const WORKS: {
