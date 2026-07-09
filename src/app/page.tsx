@@ -1,10 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
+import { Globe2, Sparkles, LayoutGrid, Building2, type LucideIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sortCategories } from "@/lib/category-order";
-import { extractCategory } from "@/lib/types";
-import { slugifyForUrl } from "@/lib/slugify";
+import { ProductCard } from "@/components/product-card";
 import type { Category, ProductListItem } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -25,15 +25,48 @@ export const metadata: Metadata = {
   },
 };
 
-function formatYen(n: number) {
-  return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY" }).format(n);
-}
-
 const INSTAGRAM_POSTS: { key: string; gradient: string; label: string }[] = [
   { key: "ig1", gradient: "from-neutral-700 to-neutral-900",  label: "Salon Interior" },
   { key: "ig2", gradient: "from-amber-950/70 to-neutral-900", label: "Chair Detail"   },
   { key: "ig3", gradient: "from-neutral-600 to-neutral-900",  label: "Mirror Unit"    },
   { key: "ig4", gradient: "from-amber-900/40 to-neutral-950", label: "Grand Opening"  },
+];
+
+const STRENGTHS: {
+  key: string;
+  icon: LucideIcon;
+  en: string;
+  ja: string;
+  desc: string;
+}[] = [
+  {
+    key: "imported",
+    icon: Globe2,
+    en: "Imported Design Furniture",
+    ja: "海外デザイン家具",
+    desc: "世界の美容家具ブランドを厳選し、日本のサロンへ直輸入でお届けします。",
+  },
+  {
+    key: "space",
+    icon: Sparkles,
+    en: "Salon Space Design",
+    ja: "サロン空間提案",
+    desc: "家具選定だけでなく、内装コンセプトからトータルでご提案します。",
+  },
+  {
+    key: "layout",
+    icon: LayoutGrid,
+    en: "Layout Consultation",
+    ja: "レイアウト相談",
+    desc: "動線や座席配置など、空間設計を無料でご相談いただけます。",
+  },
+  {
+    key: "support",
+    icon: Building2,
+    en: "Opening & Renovation Support",
+    ja: "開業・改装サポート",
+    desc: "開業計画から改装工事まで、一貫してサポートいたします。",
+  },
 ];
 
 const WORKS_CARDS: {
@@ -158,6 +191,27 @@ export default async function TopPage() {
   const rawCats = (categoriesData ?? []) as Category[];
   const categories = sortCategories(rawCats);
 
+  // サロン設置イメージ（image_type === 'usage'、公開中のBSS商品のみ）を
+  // WORKSセクションのプレビューとして最大3件取得
+  type UsageImageRow = {
+    id: string;
+    image_url: string | null;
+    alt_text: string | null;
+    products: { visibility: string; category_id: string | null } | { visibility: string; category_id: string | null }[] | null;
+  };
+
+  const { data: usageImagesRaw } = await supabase
+    .from("product_images")
+    .select("id, image_url, alt_text, products!inner(visibility, category_id)")
+    .eq("image_type", "usage")
+    .eq("products.visibility", "public")
+    .not("products.category_id", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(3);
+
+  const usageImages = ((usageImagesRaw ?? []) as unknown as UsageImageRow[])
+    .filter((img): img is UsageImageRow & { image_url: string } => !!img.image_url);
+
   return (
     <div>
       {/* ── ヒーローバナー ── */}
@@ -190,16 +244,67 @@ export default async function TopPage() {
               </span>
             </h1>
             <div className="my-8 h-px w-16 bg-amber-500/50" />
-            <p className="text-sm leading-loose text-neutral-300">業務用美容家具の卸販売</p>
-            <p className="text-xs leading-loose text-neutral-500">
+            <p className="text-sm leading-loose text-neutral-300">
+              家具の提供だけでなく、内装デザイン・レイアウト相談・
+              <br className="hidden sm:block" />
+              開業支援まで一貫してサポートします。
+            </p>
+            <p className="mt-2 text-xs leading-loose text-neutral-500">
               セット椅子・シャンプー台・ミラー・ワゴン
             </p>
-            <Link
-              href="/products"
-              className="mt-10 inline-block bg-amber-500 px-10 py-4 text-xs font-medium tracking-[0.3em] text-neutral-950 uppercase transition-colors hover:bg-amber-400"
-            >
-              商品を見る
-            </Link>
+            <div className="mt-10 flex flex-wrap items-center gap-4">
+              <Link
+                href="/products"
+                className="inline-block bg-amber-500 px-10 py-4 text-xs font-medium tracking-[0.3em] text-neutral-950 uppercase transition-colors hover:bg-amber-400"
+              >
+                商品を見る
+              </Link>
+              <Link
+                href="/contact"
+                className="inline-block border border-neutral-600 px-10 py-4 text-xs font-medium tracking-[0.3em] text-neutral-200 uppercase transition-colors hover:border-amber-500/60 hover:text-amber-400"
+              >
+                無料レイアウト相談
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── BSSの強み ── */}
+      <section className="border-b border-neutral-800 bg-neutral-950 py-20">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="mb-14 text-center">
+            <p className="mb-4 text-[10px] font-medium tracking-[0.6em] text-amber-500 uppercase">
+              Why BSS
+            </p>
+            <h2 className="text-2xl font-light tracking-wider text-neutral-100 sm:text-3xl">
+              家具の卸販売だけでは終わらない、
+              <br className="hidden sm:block" />
+              サロンづくりのパートナー
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 gap-px bg-neutral-800 sm:grid-cols-2 lg:grid-cols-4">
+            {STRENGTHS.map((s) => {
+              const Icon = s.icon;
+              return (
+                <div
+                  key={s.key}
+                  className="flex flex-col items-center gap-4 bg-neutral-950 px-6 py-12 text-center transition-colors duration-300 hover:bg-neutral-900"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full border border-amber-500/30">
+                    <Icon size={20} className="text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-light tracking-[0.15em] text-neutral-100">
+                      {s.en}
+                    </p>
+                    <p className="mt-1 text-xs tracking-wider text-neutral-500">{s.ja}</p>
+                  </div>
+                  <p className="text-xs leading-[1.9] text-neutral-500">{s.desc}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -303,55 +408,9 @@ export default async function TopPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {featured.map((p) => {
-              const cat = extractCategory(p.categories);
-              const imgs = p.product_images ?? [];
-              const mainImg = imgs.find((i) => i.image_type === "main") ?? imgs[0];
-              const href = cat?.slug
-                ? `/products/${cat.slug}/${p.sku ? slugifyForUrl(p.sku) : p.id}`
-                : "/products";
-
-              return (
-                <Link
-                  key={p.id}
-                  href={href}
-                  className="group flex flex-col overflow-hidden border border-neutral-800 bg-neutral-900 transition-all duration-500 hover:-translate-y-1 hover:border-amber-500/40 hover:shadow-[0_16px_48px_rgba(0,0,0,0.6)]"
-                >
-                  <div className="relative aspect-[4/3] overflow-hidden bg-neutral-950">
-                    {mainImg ? (
-                      <Image
-                        src={mainImg.image_url}
-                        alt={p.product_name}
-                        fill
-                        sizes="(max-width: 640px) 50vw, 25vw"
-                        className="object-contain transition-transform duration-300 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-[10px] text-neutral-800">
-                        NO IMAGE
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-2 p-4">
-                    {cat && (
-                      <span className="text-[9px] tracking-[0.25em] text-amber-600/70 uppercase">
-                        {cat.slug}
-                      </span>
-                    )}
-                    <div className="h-px w-6 bg-amber-600/40 transition-all duration-300 group-hover:w-10 group-hover:bg-amber-400" />
-                    <p className="line-clamp-2 text-xs font-light tracking-wide text-neutral-200 transition-colors group-hover:text-amber-300">
-                      {p.product_name}
-                    </p>
-                    {p.selling_price != null && (
-                      <p className="mt-1 text-sm font-light text-amber-400">
-                        {formatYen(p.selling_price)}
-                        <span className="ml-1 text-[9px] text-neutral-600">税込</span>
-                      </p>
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
+            {featured.map((p) => (
+              <ProductCard key={p.id} p={p} />
+            ))}
           </div>
         </section>
       )}
@@ -380,40 +439,63 @@ export default async function TopPage() {
             <div className="mt-8 h-px w-full bg-neutral-800" />
           </div>
 
-          {/* カード3枚 */}
+          {/* カード3枚（サロン設置イメージがあれば実写真、無ければプレースホルダー） */}
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {WORKS_CARDS.map((w, i) => (
-              <div
-                key={w.key}
-                className="group relative flex flex-col overflow-hidden border border-neutral-800 transition-all duration-500 hover:-translate-y-1 hover:border-amber-500/40 hover:shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
-              >
-                {/* プレースホルダー背景 */}
-                <div
-                  className={`relative flex aspect-[4/3] w-full items-end bg-gradient-to-br ${w.gradient}`}
-                >
-                  {/* ゴールドアクセント光 */}
+            {usageImages.length > 0
+              ? usageImages.map((img, i) => (
+                  <Link
+                    key={img.id}
+                    href="/works"
+                    className="group relative flex aspect-[4/3] flex-col justify-end overflow-hidden border border-neutral-800 transition-all duration-500 hover:-translate-y-1 hover:border-amber-500/40 hover:shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
+                  >
+                    <Image
+                      src={img.image_url}
+                      alt={img.alt_text ?? "サロン設置イメージ"}
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
+                    <span className="absolute right-5 top-5 font-mono text-5xl font-light text-white/10 select-none">
+                      0{i + 1}
+                    </span>
+                    <span className="relative m-5 self-end border border-amber-500/30 px-3 py-1 text-[10px] tracking-[0.25em] text-amber-500/80 uppercase">
+                      Salon Case
+                    </span>
+                  </Link>
+                ))
+              : WORKS_CARDS.map((w, i) => (
                   <div
-                    className={`absolute inset-0 bg-gradient-to-t ${w.accentFrom} to-transparent opacity-60 transition-opacity duration-500 group-hover:opacity-80`}
-                  />
-                  {/* 番号 */}
-                  <span className="absolute right-5 top-5 font-mono text-5xl font-light text-white/8 select-none">
-                    0{i + 1}
-                  </span>
-                  {/* タグ */}
-                  <span className="relative m-5 self-end border border-amber-500/30 px-3 py-1 text-[10px] tracking-[0.25em] text-amber-500/80 uppercase">
-                    {w.tag}
-                  </span>
-                </div>
+                    key={w.key}
+                    className="group relative flex flex-col overflow-hidden border border-neutral-800 transition-all duration-500 hover:-translate-y-1 hover:border-amber-500/40 hover:shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
+                  >
+                    {/* プレースホルダー背景 */}
+                    <div
+                      className={`relative flex aspect-[4/3] w-full items-end bg-gradient-to-br ${w.gradient}`}
+                    >
+                      {/* ゴールドアクセント光 */}
+                      <div
+                        className={`absolute inset-0 bg-gradient-to-t ${w.accentFrom} to-transparent opacity-60 transition-opacity duration-500 group-hover:opacity-80`}
+                      />
+                      {/* 番号 */}
+                      <span className="absolute right-5 top-5 font-mono text-5xl font-light text-white/8 select-none">
+                        0{i + 1}
+                      </span>
+                      {/* タグ */}
+                      <span className="relative m-5 self-end border border-amber-500/30 px-3 py-1 text-[10px] tracking-[0.25em] text-amber-500/80 uppercase">
+                        {w.tag}
+                      </span>
+                    </div>
 
-                {/* テキスト */}
-                <div className="flex flex-col gap-1 bg-neutral-900 p-5">
-                  <p className="text-base font-light tracking-widest text-neutral-100 transition-colors duration-300 group-hover:text-amber-300">
-                    {w.en}
-                  </p>
-                  <p className="text-xs tracking-wider text-neutral-500">{w.ja}</p>
-                </div>
-              </div>
-            ))}
+                    {/* テキスト */}
+                    <div className="flex flex-col gap-1 bg-neutral-900 p-5">
+                      <p className="text-base font-light tracking-widest text-neutral-100 transition-colors duration-300 group-hover:text-amber-300">
+                        {w.en}
+                      </p>
+                      <p className="text-xs tracking-wider text-neutral-500">{w.ja}</p>
+                    </div>
+                  </div>
+                ))}
           </div>
 
           {/* /works への導線 */}
@@ -457,7 +539,7 @@ export default async function TopPage() {
             {INSTAGRAM_POSTS.map((post) => (
               <a
                 key={post.key}
-                href="https://www.instagram.com/"
+                href="https://www.instagram.com/beauty_salon_suppliers.jp/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group relative aspect-square overflow-hidden border border-neutral-800 transition-all duration-500 hover:border-amber-500/40 hover:shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
