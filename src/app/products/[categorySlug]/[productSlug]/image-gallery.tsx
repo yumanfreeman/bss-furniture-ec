@@ -10,33 +10,52 @@ type Props = {
   productName: string;
 };
 
+type ViewMode = "product" | "installation";
+
 export function ImageGallery({ images, productName }: Props) {
   // image_url が null/空のレコードを除外（SSR クラッシュ防止）
   const validImages = images.filter(
     (img): img is ProductImage & { image_url: string } => !!img.image_url,
   );
 
-  const mainImg = validImages.find((i) => i.image_type === "main") ?? validImages[0];
+  // 商品画像（main/sub/color/drawing）と設置イメージ（usage）を分離
+  const productImages = validImages.filter((i) => i.image_type !== "usage");
+  const installationImages = validImages.filter((i) => i.image_type === "usage");
+  const hasProduct = productImages.length > 0;
+  const hasInstallation = installationImages.length > 0;
+
+  const [viewMode, setViewMode] = useState<ViewMode>(hasProduct ? "product" : "installation");
+  const activeImages =
+    viewMode === "installation" && hasInstallation ? installationImages : productImages;
+
+  const mainImg =
+    activeImages.find((i) => i.image_type === "main") ?? activeImages[0] ?? validImages[0];
   const [selectedId, setSelectedId] = useState<string | null>(mainImg?.id ?? null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
-  const selectedIndex = validImages.findIndex((i) => i.id === selectedId);
-  const selected = validImages[selectedIndex] ?? validImages[0];
+  // タブ切替時は先頭画像を選び直す
+  useEffect(() => {
+    setSelectedId(activeImages[0]?.id ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode]);
+
+  const selectedIndex = activeImages.findIndex((i) => i.id === selectedId);
+  const selected = activeImages[selectedIndex] ?? activeImages[0];
 
   const openLightbox = () => setLightboxOpen(true);
   const closeLightbox = () => setLightboxOpen(false);
 
   const goPrev = useCallback(() => {
-    if (validImages.length < 2) return;
-    const prevIndex = (selectedIndex - 1 + validImages.length) % validImages.length;
-    setSelectedId(validImages[prevIndex].id);
-  }, [validImages, selectedIndex]);
+    if (activeImages.length < 2) return;
+    const prevIndex = (selectedIndex - 1 + activeImages.length) % activeImages.length;
+    setSelectedId(activeImages[prevIndex].id);
+  }, [activeImages, selectedIndex]);
 
   const goNext = useCallback(() => {
-    if (validImages.length < 2) return;
-    const nextIndex = (selectedIndex + 1) % validImages.length;
-    setSelectedId(validImages[nextIndex].id);
-  }, [validImages, selectedIndex]);
+    if (activeImages.length < 2) return;
+    const nextIndex = (selectedIndex + 1) % activeImages.length;
+    setSelectedId(activeImages[nextIndex].id);
+  }, [activeImages, selectedIndex]);
 
   // キーボード操作（ESC で閉じる・矢印キーで切替）
   useEffect(() => {
@@ -56,7 +75,7 @@ export function ImageGallery({ images, productName }: Props) {
     return () => { document.body.style.overflow = ""; };
   }, [lightboxOpen]);
 
-  if (validImages.length === 0) {
+  if (validImages.length === 0 || !selected) {
     return (
       <div className="relative aspect-square overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950">
         <div className="flex h-full flex-col items-center justify-center gap-2 text-neutral-700">
@@ -68,12 +87,40 @@ export function ImageGallery({ images, productName }: Props) {
 
   return (
     <>
-      <div className="space-y-3">
+      <div className="space-y-4">
+        {/* ── 商品画像 / 設置イメージ 切替タブ ── */}
+        {hasProduct && hasInstallation && (
+          <div className="inline-flex rounded-full border border-neutral-800 bg-neutral-950 p-1">
+            <button
+              type="button"
+              onClick={() => setViewMode("product")}
+              className={`rounded-full px-4 py-1.5 text-[10px] font-medium tracking-[0.2em] uppercase transition-colors duration-200 ${
+                viewMode === "product"
+                  ? "bg-amber-500 text-neutral-950"
+                  : "text-neutral-500 hover:text-neutral-300"
+              }`}
+            >
+              商品画像
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("installation")}
+              className={`rounded-full px-4 py-1.5 text-[10px] font-medium tracking-[0.2em] uppercase transition-colors duration-200 ${
+                viewMode === "installation"
+                  ? "bg-amber-500 text-neutral-950"
+                  : "text-neutral-500 hover:text-neutral-300"
+              }`}
+            >
+              設置イメージ
+            </button>
+          </div>
+        )}
+
         {/* ── メイン画像（クリックで Lightbox） ── */}
         <button
           type="button"
           onClick={openLightbox}
-          className="group relative block w-full cursor-zoom-in overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950 shadow-[0_0_40px_rgba(0,0,0,0.6)] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+          className="group relative block w-full cursor-zoom-in overflow-hidden rounded-xl border border-neutral-800/80 bg-neutral-950 shadow-[0_0_50px_rgba(0,0,0,0.7)] ring-1 ring-white/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
           aria-label="画像を拡大表示"
         >
           <div className="relative aspect-square">
@@ -82,7 +129,7 @@ export function ImageGallery({ images, productName }: Props) {
               alt={selected.alt_text ?? productName}
               fill
               sizes="(max-width: 1024px) 100vw, 50vw"
-              className="object-contain p-4 transition-transform duration-300 group-hover:scale-[1.02]"
+              className="object-contain p-4 transition-transform duration-500 group-hover:scale-[1.02]"
               priority
             />
           </div>
@@ -93,19 +140,19 @@ export function ImageGallery({ images, productName }: Props) {
         </button>
 
         {/* ── サムネイル（複数枚のみ） ── */}
-        {validImages.length > 1 && (
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {validImages.map((img, i) => {
+        {activeImages.length > 1 && (
+          <div className="flex gap-2.5 overflow-x-auto pb-1">
+            {activeImages.map((img, i) => {
               const isActive = img.id === selectedId;
               return (
                 <button
                   key={img.id}
                   type="button"
                   onClick={() => setSelectedId(img.id)}
-                  className={`relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-lg border-2 bg-neutral-900 transition-all duration-150 ${
+                  className={`relative h-[76px] w-[76px] shrink-0 overflow-hidden rounded-lg border bg-neutral-900 transition-all duration-200 ${
                     isActive
-                      ? "border-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.3)]"
-                      : "border-neutral-800 hover:border-neutral-600"
+                      ? "border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.35)] scale-[1.03]"
+                      : "border-neutral-800 opacity-70 hover:border-neutral-600 hover:opacity-100"
                   }`}
                   aria-label={img.alt_text ?? `画像 ${i + 1}`}
                 >
@@ -113,7 +160,7 @@ export function ImageGallery({ images, productName }: Props) {
                     src={img.image_url}
                     alt={img.alt_text ?? ""}
                     fill
-                    sizes="72px"
+                    sizes="76px"
                     className="object-contain p-1.5"
                   />
                 </button>
@@ -123,9 +170,9 @@ export function ImageGallery({ images, productName }: Props) {
         )}
 
         {/* 枚数インジケーター */}
-        {validImages.length > 1 && (
-          <p className="text-center font-mono text-[10px] text-neutral-700">
-            {selectedIndex + 1} / {validImages.length}
+        {activeImages.length > 1 && (
+          <p className="text-center font-mono text-[10px] tracking-widest text-neutral-700">
+            {selectedIndex + 1} / {activeImages.length}
           </p>
         )}
       </div>
@@ -147,14 +194,14 @@ export function ImageGallery({ images, productName }: Props) {
           </button>
 
           {/* 枚数表示 */}
-          {validImages.length > 1 && (
+          {activeImages.length > 1 && (
             <p className="absolute top-5 left-1/2 -translate-x-1/2 font-mono text-[11px] text-neutral-600">
-              {selectedIndex + 1} / {validImages.length}
+              {selectedIndex + 1} / {activeImages.length}
             </p>
           )}
 
           {/* 前へ */}
-          {validImages.length > 1 && (
+          {activeImages.length > 1 && (
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); goPrev(); }}
@@ -166,7 +213,7 @@ export function ImageGallery({ images, productName }: Props) {
           )}
 
           {/* 次へ */}
-          {validImages.length > 1 && (
+          {activeImages.length > 1 && (
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); goNext(); }}
@@ -194,12 +241,12 @@ export function ImageGallery({ images, productName }: Props) {
           </div>
 
           {/* モバイル：下部サムネイル */}
-          {validImages.length > 1 && (
+          {activeImages.length > 1 && (
             <div
               className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2 overflow-x-auto px-4"
               onClick={(e) => e.stopPropagation()}
             >
-              {validImages.map((img, i) => {
+              {activeImages.map((img, i) => {
                 const isActive = img.id === selectedId;
                 return (
                   <button
