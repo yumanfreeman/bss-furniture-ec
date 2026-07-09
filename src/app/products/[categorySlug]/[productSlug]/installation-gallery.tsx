@@ -65,24 +65,28 @@ export function InstallationGallery({ images, productName }: Props) {
   if (validImages.length === 0) return null;
 
   return (
-    <section className="mt-20 border-t border-neutral-800/60 pt-20">
-      <div className="mb-12 text-center">
+    <section className="mt-16 border-t border-neutral-800/60 pt-16">
+      <div className="mb-14 text-center">
         <p className="mb-4 text-[10px] font-medium tracking-[0.6em] text-amber-500 uppercase">
-          Installation Image
+          Portfolio
         </p>
         <h2 className="text-2xl font-light tracking-wider text-neutral-100 sm:text-3xl">
           サロン設置イメージ
         </h2>
       </div>
 
-      {/* ── グリッド（クリックで Lightbox） ── */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      {/* ── 作品集：写真を主役にした余白の大きいレイアウト（1枚目は大きく） ── */}
+      <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 sm:gap-12">
         {validImages.map((img, i) => (
           <button
             key={img.id}
             type="button"
             onClick={() => openLightbox(img.id)}
-            className="group relative aspect-[4/3] cursor-zoom-in overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950 transition-all duration-500 hover:-translate-y-1 hover:border-amber-500/40 hover:shadow-[0_20px_50px_rgba(0,0,0,0.6)] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+            className={`group relative cursor-zoom-in overflow-hidden rounded-lg bg-neutral-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
+              i === 0 && validImages.length > 1
+                ? "aspect-[16/9] sm:col-span-2"
+                : "aspect-[4/3]"
+            }`}
             aria-label={img.alt_text ?? `サロン設置イメージ ${i + 1}`}
           >
             <Image
@@ -90,9 +94,10 @@ export function InstallationGallery({ images, productName }: Props) {
               alt={img.alt_text ?? `${productName} サロン設置イメージ`}
               fill
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-              className="object-cover transition-transform duration-700 group-hover:scale-105"
+              className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
             />
-            <div className="absolute right-3 top-3 rounded-full bg-black/50 p-1.5 opacity-0 backdrop-blur-sm transition-opacity duration-200 group-hover:opacity-100">
+            <div className="absolute inset-0 bg-black/0 transition-colors duration-500 group-hover:bg-black/10" />
+            <div className="absolute right-4 top-4 rounded-full bg-black/50 p-1.5 opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100">
               <ZoomIn size={14} className="text-neutral-300" />
             </div>
           </button>
@@ -100,7 +105,7 @@ export function InstallationGallery({ images, productName }: Props) {
       </div>
 
       {/* ── 免責文言 ── */}
-      <p className="mx-auto mt-8 max-w-lg text-center text-[11px] leading-relaxed text-neutral-600">
+      <p className="mx-auto mt-10 max-w-lg text-center text-[11px] leading-relaxed text-neutral-600">
         ※写真はイメージです。実際の設置環境・照明により見え方が異なる場合があります。
       </p>
 

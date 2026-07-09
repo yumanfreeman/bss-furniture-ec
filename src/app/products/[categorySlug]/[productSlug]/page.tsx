@@ -1,8 +1,7 @@
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowRight, ShoppingCart } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { slugifyForUrl } from "@/lib/slugify";
 import { extractCategory } from "@/lib/types";
@@ -13,8 +12,30 @@ import { AddToCartButton } from "./add-to-cart-button";
 import { ProductCard } from "@/components/product-card";
 import type { Category, ProductDetail, ProductImage, ProductListItem } from "@/lib/types";
 
-// おすすめセット（カテゴリ違いの相性商品）の対象カテゴリ例
-const COMPLEMENTARY_CATEGORY_SLUGS = ["mirror", "trolley", "stool"];
+// Complete Your Salon（カテゴリ違いの相性商品）の対象カテゴリ候補
+const COMPLEMENTARY_CATEGORY_SLUGS = [
+  "mirror",
+  "trolley",
+  "stool",
+  "chair",
+  "set-chair",
+  "shampoo",
+  "shampoo-stand",
+];
+
+// 空間提案として組み合わせが伝わる表示順（Mirror → Chair → Trolley → Shampoo）
+const SALON_FLOW_ORDER = [
+  "mirror",
+  "chair",
+  "set-chair",
+  "trolley",
+  "shampoo",
+  "shampoo-stand",
+  "stool",
+];
+
+// キャッチコピー（商品共通・仮テキスト。DBにフィールドが無いため固定文言）
+const PRODUCT_TAGLINE = "空間の質を上げる、静かな存在感。";
 
 export const dynamic = "force-dynamic";
 
@@ -178,22 +199,7 @@ export default async function ProductDetailPage({
 
   if (!product) notFound();
 
-  // 関連商品（同カテゴリ・自身除外・最大4件）
-  const { data: relatedRaw } = await supabase
-    .from("products")
-    .select(
-      "id, product_name, slug, sku, selling_price, color, " +
-      "categories(id, name, slug), " +
-      "product_images(id, image_url, image_type, alt_text, sort_order)"
-    )
-    .eq("visibility", "public")
-    .eq("category_id", cat.id)
-    .neq("id", product.id)
-    .limit(4);
-
-  const relatedProducts = (relatedRaw ?? []) as unknown as ProductListItem[];
-
-  // おすすめセット（カテゴリ違いの相性商品：ミラー・ワゴン・スツール等を1点ずつ）
+  // Complete Your Salon（カテゴリ違いの相性商品：ミラー・チェア・ワゴン・シャンプー台等を1点ずつ）
   const complementarySlugs = COMPLEMENTARY_CATEGORY_SLUGS.filter((s) => s !== cat.slug);
   let complementaryProducts: ProductListItem[] = [];
   if (complementarySlugs.length > 0) {
@@ -223,6 +229,15 @@ export default async function ProductDetailPage({
         seen.add(pCat.id);
         complementaryProducts.push(p);
       }
+
+      // 空間提案として伝わるよう Mirror → Chair → Trolley → Shampoo の順に並べ替え
+      complementaryProducts.sort((a, b) => {
+        const aSlug = extractCategory(a.categories)?.slug ?? "";
+        const bSlug = extractCategory(b.categories)?.slug ?? "";
+        const aIdx = SALON_FLOW_ORDER.indexOf(aSlug);
+        const bIdx = SALON_FLOW_ORDER.indexOf(bSlug);
+        return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx);
+      });
     }
   }
 
@@ -246,7 +261,8 @@ export default async function ProductDetailPage({
       product.height_mm ? `高さ${product.height_mm}mm` : null,
     ].filter((v): v is string => !!v).join(" × ") || null);
 
-  // Specifications（SIZE / COLOR / MATERIAL / DELIVERY / PRODUCTION をシンプルに表示）
+  // Specifications（SIZE / COLOR / MATERIAL / DELIVERY / PRODUCTION、保証があればWARRANTYも）
+  // ファーストビューでCTAまで収まるよう1つのコンパクトな一覧に統合
   const specRows: { label: string; value: string }[] = [
     sizeSummary       ? { label: "SIZE",     value: sizeSummary }      : null,
     product.color     ? { label: "COLOR",    value: product.color }    : null,
@@ -256,7 +272,7 @@ export default async function ProductDetailPage({
       ? { label: "PRODUCTION", value: product.lead_time }
       : product.is_made_to_order
         ? { label: "PRODUCTION", value: "受注生産" }
-        : null,
+        : { label: "PRODUCTION", value: "在庫品・随時出荷" },
     product.warranty  ? { label: "WARRANTY", value: product.warranty } : null,
   ].filter((s): s is { label: string; value: string } => s !== null);
 
@@ -266,32 +282,6 @@ export default async function ProductDetailPage({
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://bss-japan.com";
   const productUrl = `${siteUrl}/products/${cat.slug}/${breadcrumbEnd}`;
   const ogImage = images[0]?.image_url ?? `${siteUrl}/logo.png`;
-
-  // WHY THIS PRODUCT（商品ストーリー・仮テキスト）
-  const productStory: { num: string; en: string; ja: string; text: string }[] = [
-    {
-      num: "01",
-      en: "For Salons",
-      ja: "どんなサロンに合うか",
-      text: `ラグジュアリーな空間づくりを目指すサロンから、ミニマルで洗練された雰囲気を求めるサロンまで。${product.product_name}は、幅広いブランドコンセプトに調和します。`,
-    },
-    {
-      num: "02",
-      en: "The Atmosphere",
-      ja: "どんな世界観を作れるか",
-      text: "上質な素材と洗練されたフォルムが、お客様を迎える瞬間から特別な体験を演出します。細部の質感まで、サロンの世界観を底上げします。",
-    },
-    {
-      num: "03",
-      en: "For Owners",
-      ja: "どんなオーナーにおすすめか",
-      text: "細部にまでこだわり、サロン全体のブランド価値を高めたいと考えるオーナー様におすすめです。長く愛用できる、上質な一台です。",
-    },
-  ];
-
-  // Before / After（商品単体画像 → 設置イメージ）
-  const beforeAfterProductImage = images.find((img) => img.image_type !== "usage") ?? images[0];
-  const beforeAfterInstallationImage = installationImages[0];
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -352,44 +342,52 @@ export default async function ProductDetailPage({
       {/* ── Hero（PC: 左画像・右情報の2カラム／モバイル: 縦積み） ── */}
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_1fr] lg:gap-16">
 
-        {/* ── 画像ギャラリー ── */}
-        <div className="lg:sticky lg:top-6 lg:self-start">
+        {/* ── 画像ギャラリー（画面占有を抑えるため最大幅を制限） ── */}
+        <div className="lg:sticky lg:top-6 lg:max-w-[480px] lg:self-start">
           <ImageGallery images={images} productName={product.product_name} />
         </div>
 
-        {/* ── 商品情報カラム ── */}
-        <div className="space-y-7">
+        {/* ── 商品情報カラム（ファーストビューでCTAまで収まるようコンパクトに構成） ── */}
+        <div className="space-y-5">
 
-          {/* バッジ群 */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-amber-800/40 bg-amber-950/20 px-3 py-1 font-mono text-[10px] text-amber-500/80">
-              {cat.slug}
-            </span>
-            <StatusBadge status={product.status} />
-            <StockBadge qty={product.stock_quantity} isMto={product.is_made_to_order} />
+          {/* COLLECTION名 */}
+          <div>
+            <p className="text-[10px] font-medium tracking-[0.6em] text-amber-500 uppercase">
+              Collection
+            </p>
+            <p className="mt-1 text-xs tracking-[0.15em] text-neutral-500">
+              {cat.name}
+            </p>
           </div>
 
-          {/* 商品名・SKU */}
+          {/* 商品名・バッジ・SKU */}
           <div>
             <h1 className="text-[26px] font-light leading-snug tracking-wide text-neutral-100">
               {product.product_name}
             </h1>
-            {product.sku && (
-              <p className="mt-2 font-mono text-xs text-neutral-600">
-                SKU: {product.sku}
-              </p>
-            )}
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              <StatusBadge status={product.status} />
+              <StockBadge qty={product.stock_quantity} isMto={product.is_made_to_order} />
+              {product.sku && (
+                <span className="font-mono text-[11px] text-neutral-600">SKU: {product.sku}</span>
+              )}
+            </div>
           </div>
 
-          {/* 説明 */}
+          {/* キャッチコピー */}
+          <p className="text-sm font-light italic leading-relaxed tracking-wide text-amber-100/80 sm:text-base">
+            {PRODUCT_TAGLINE}
+          </p>
+
+          {/* 商品説明（2〜3行に要約） */}
           {product.description && (
-            <p className="whitespace-pre-wrap text-sm leading-[1.9] text-neutral-400">
+            <p className="line-clamp-3 text-sm leading-[1.8] text-neutral-400">
               {product.description}
             </p>
           )}
 
           {/* 価格 */}
-          <div className="border-y border-neutral-800 py-5">
+          <div className="border-y border-neutral-800 py-4">
             <p className="text-[9px] font-medium tracking-[0.5em] text-neutral-600 uppercase">
               Price
             </p>
@@ -415,7 +413,7 @@ export default async function ProductDetailPage({
               </p>
               <div className="divide-y divide-neutral-800/60">
                 {specRows.map((s) => (
-                  <div key={s.label} className="flex items-center justify-between py-3">
+                  <div key={s.label} className="flex items-center justify-between py-2.5">
                     <span className="text-[10px] tracking-[0.25em] text-neutral-600">
                       {s.label}
                     </span>
@@ -428,14 +426,14 @@ export default async function ProductDetailPage({
 
           {/* 受注生産の注意書き */}
           {product.stock_quantity === 0 && product.is_made_to_order && (
-            <p className="rounded-xl border border-amber-800/30 bg-amber-950/20 px-5 py-4 text-xs leading-relaxed text-amber-300/80">
+            <p className="rounded-xl border border-amber-800/30 bg-amber-950/20 px-5 py-3 text-xs leading-relaxed text-amber-300/80">
               この商品は受注生産品です。ご注文後に製造を開始いたします。
               {product.lead_time && `　納期の目安：${product.lead_time}`}
             </p>
           )}
 
           {/* ── CTAクラスター ── */}
-          <div className="space-y-4 rounded-2xl border border-neutral-800/70 bg-neutral-900/20 p-6">
+          <div className="space-y-3 rounded-2xl border border-neutral-800/70 bg-neutral-900/20 p-5">
             {/* カートに入れる（価格未設定商品は非表示） */}
             {product.selling_price != null && product.selling_price > 0 && (
               <AddToCartButton
@@ -457,59 +455,45 @@ export default async function ProductDetailPage({
               categorySlug={cat.slug}
             />
 
-            {/* カートを見る */}
-            <Link
-              href="/cart"
-              className="flex items-center justify-center gap-1.5 pt-1 text-xs text-neutral-500 transition-colors hover:text-amber-400"
-            >
-              <ShoppingCart size={13} />
-              カートを見る
-            </Link>
+            {/* カートを見る／仕様書PDF */}
+            <div className="flex items-center justify-between gap-4 pt-1">
+              <Link
+                href="/cart"
+                className="flex items-center gap-1.5 text-xs text-neutral-500 transition-colors hover:text-amber-400"
+              >
+                <ShoppingCart size={13} />
+                カートを見る
+              </Link>
+              {product.pdf_url && (
+                <a
+                  href={product.pdf_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs text-neutral-500 transition-colors hover:text-amber-400"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="12" y1="18" x2="12" y2="12" />
+                    <line x1="9" y1="15" x2="15" y2="15" />
+                  </svg>
+                  仕様書PDF
+                </a>
+              )}
+            </div>
           </div>
         </div>
       </div>
-
-      {/* ── Details（特徴・仕様書PDF：Heroから分離したコンパクトな補足情報） ── */}
-      {(product.features || product.pdf_url) && (
-        <section className="mt-16 border-t border-neutral-800/60 pt-10">
-          {product.features && (
-            <div className="mb-6 max-w-2xl">
-              <p className="mb-3 text-[9px] font-medium tracking-[0.5em] text-neutral-600 uppercase">
-                Features
-              </p>
-              <p className="whitespace-pre-wrap text-sm leading-[1.9] text-neutral-400">
-                {product.features}
-              </p>
-            </div>
-          )}
-          {product.pdf_url && (
-            <a
-              href={product.pdf_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-xs font-medium text-neutral-500 transition-colors hover:text-amber-400"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="12" y1="18" x2="12" y2="12" />
-                <line x1="9" y1="15" x2="15" y2="15" />
-              </svg>
-              仕様書をダウンロード（PDF）
-            </a>
-          )}
-        </section>
-      )}
 
       {/* ── サロン設置イメージ（Hero直下・image_type === 'usage' の画像がある場合のみ） ── */}
       {installationImages.length > 0 && (
@@ -519,138 +503,46 @@ export default async function ProductDetailPage({
         />
       )}
 
-      {/* ── Before / After（商品単体 → 設置イメージ） ── */}
-      {beforeAfterProductImage && beforeAfterInstallationImage && (
-        <section className="mt-20 border-t border-neutral-800/60 pt-20">
-          <div className="mb-14 text-center">
-            <p className="mb-4 text-[10px] font-medium tracking-[0.6em] text-amber-500 uppercase">
-              Before / After
-            </p>
-            <h2 className="text-2xl font-light tracking-wider text-neutral-100 sm:text-3xl">
-              置いた瞬間、空間が変わる。
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-[1fr_auto_1fr] sm:gap-8">
-            <div className="relative aspect-square overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950">
-              <Image
-                src={beforeAfterProductImage.image_url}
-                alt={beforeAfterProductImage.alt_text ?? product.product_name}
-                fill
-                sizes="(max-width: 640px) 100vw, 40vw"
-                className="object-contain p-6"
-              />
-              <span className="absolute left-4 top-4 rounded-full border border-neutral-700 bg-neutral-950/80 px-3 py-1 text-[10px] tracking-[0.25em] text-neutral-400 uppercase backdrop-blur-sm">
-                Before
-              </span>
-            </div>
-            <div className="flex items-center justify-center py-2 text-amber-500/60 sm:py-0">
-              <ArrowRight size={28} className="hidden sm:block" />
-              <div className="h-px w-16 rotate-90 bg-amber-500/30 sm:hidden" />
-            </div>
-            <div className="relative aspect-square overflow-hidden rounded-xl border border-amber-500/20 bg-neutral-950">
-              <Image
-                src={beforeAfterInstallationImage.image_url}
-                alt={beforeAfterInstallationImage.alt_text ?? `${product.product_name} 設置イメージ`}
-                fill
-                sizes="(max-width: 640px) 100vw, 40vw"
-                className="object-cover"
-              />
-              <span className="absolute left-4 top-4 rounded-full border border-amber-500/40 bg-neutral-950/80 px-3 py-1 text-[10px] tracking-[0.25em] text-amber-400 uppercase backdrop-blur-sm">
-                After
-              </span>
-            </div>
-          </div>
-          <p className="mx-auto mt-8 max-w-lg text-center text-[11px] leading-relaxed text-neutral-600">
-            ※ 設置イメージは実際の施工事例またはイメージ画像です。空間・照明により見え方が異なる場合があります。
-          </p>
-        </section>
-      )}
-
-      {/* ── WHY THIS PRODUCT（商品ストーリー） ── */}
-      <section className="mt-20 border-t border-neutral-800/60 pt-20">
-        <div className="mb-16 text-center">
-          <p className="mb-4 text-[10px] font-medium tracking-[0.6em] text-amber-500 uppercase">
-            Why This Product
-          </p>
-          <h2 className="text-2xl font-light tracking-wider text-neutral-100 sm:text-3xl">
-            スペックだけでは伝わらない、
-            <br className="hidden sm:block" />
-            この商品が生み出す価値
-          </h2>
-        </div>
-        <div className="mx-auto max-w-3xl space-y-16">
-          {productStory.map((s) => (
-            <div key={s.num} className="text-center">
-              <p className="font-mono text-xs tracking-[0.3em] text-amber-500/60">{s.num}</p>
-              <p className="mt-3 mb-5 text-[10px] font-medium tracking-[0.4em] text-neutral-500 uppercase">
-                {s.en} — {s.ja}
-              </p>
-              <p className="text-base font-light leading-[2.1] tracking-wide text-neutral-300 sm:text-lg">
-                {s.text}
-              </p>
-            </div>
-          ))}
-        </div>
+      {/* ── Brand Story ── */}
+      <section className="mt-20 border-y border-amber-500/20 bg-black px-6 py-28 text-center">
+        <div className="mx-auto mb-8 h-px w-16 bg-amber-500/40" />
+        <h2 className="text-2xl font-light tracking-wider text-neutral-100 sm:text-3xl">
+          Designed for Beautiful Salons.
+        </h2>
+        <p className="mx-auto mt-6 max-w-lg text-sm leading-[2] tracking-wide text-neutral-500">
+          BSSは、家具を売るだけではなく、美容室というブランド空間をデザインします。
+        </p>
+        <div className="mx-auto mt-8 h-px w-16 bg-amber-500/40" />
       </section>
 
-      {/* ── おすすめセット（カテゴリ違いの相性商品） ── */}
+      {/* ── Complete Your Salon（空間提案：組み合わせが伝わるフロー表示） ── */}
       {complementaryProducts.length > 0 && (
         <section className="mt-24 border-t border-neutral-800/60 pt-16">
-          <div className="mb-8">
-            <p className="text-[9px] font-medium tracking-[0.5em] text-amber-500 uppercase">
-              Complete The Set
+          <div className="mb-14 text-center">
+            <p className="mb-3 text-[9px] font-medium tracking-[0.5em] text-amber-500 uppercase">
+              Space Styling
             </p>
-            <h2 className="mt-1 text-lg font-light tracking-wider text-neutral-300">
-              この商品と相性の良い商品
-            </h2>
-          </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {complementaryProducts.map((p) => (
-              <ProductCard key={p.id} p={p} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ── Complete Your Salon（この商品に合うおすすめ商品） ── */}
-      {relatedProducts.length > 0 && (
-        <section className="mt-24 border-t border-neutral-800/60 pt-16">
-          <div className="mb-8">
-            <p className="text-[9px] font-medium tracking-[0.5em] text-amber-500 uppercase">
-              Curated Selection
-            </p>
-            <h2 className="mt-1 text-lg font-light tracking-wider text-neutral-300">
+            <h2 className="text-2xl font-light tracking-wider text-neutral-100 sm:text-3xl">
               Complete Your Salon
             </h2>
+            <p className="mx-auto mt-4 max-w-lg text-xs leading-relaxed text-neutral-500">
+              ミラー、チェア、ワゴン、シャンプー台まで。空間全体で美しく調和する組み合わせをご提案します。
+            </p>
           </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {relatedProducts.map((p) => (
-              <ProductCard key={p.id} p={p} />
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-10">
+            {complementaryProducts.map((p, i) => (
+              <div key={p.id} className="flex items-center gap-5">
+                <div className="w-36 sm:w-44">
+                  <ProductCard p={p} />
+                </div>
+                {i < complementaryProducts.length - 1 && (
+                  <span className="text-2xl font-extralight text-amber-500/40">+</span>
+                )}
+              </div>
             ))}
           </div>
         </section>
       )}
-
-      {/* ── 無料レイアウト相談 CTA ── */}
-      <section className="mt-24 overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-br from-neutral-900 via-neutral-950 to-black px-8 py-16 text-center">
-        <p className="mb-4 text-[10px] font-medium tracking-[0.6em] text-amber-500 uppercase">
-          Free Consultation
-        </p>
-        <h2 className="text-2xl font-light tracking-wider text-neutral-100 sm:text-3xl">
-          無料レイアウト相談
-        </h2>
-        <p className="mx-auto mt-5 max-w-md text-sm leading-[1.9] text-neutral-500">
-          サロンの導線設計やレイアウトのご相談も承っております。
-          理想の空間づくりを、BSSが一貫してサポートします。
-        </p>
-        <div className="mx-auto my-8 h-px w-16 bg-amber-500/40" />
-        <Link
-          href="/contact"
-          className="inline-flex items-center gap-2 bg-amber-500 px-10 py-4 text-xs font-medium tracking-[0.3em] text-neutral-950 uppercase transition-colors hover:bg-amber-400"
-        >
-          無料相談を申し込む
-        </Link>
-      </section>
 
       {/* ── ブランドメッセージ ── */}
       <section className="mt-24 border-y border-amber-500/20 bg-black px-6 py-32 text-center">

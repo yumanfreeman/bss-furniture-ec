@@ -157,12 +157,14 @@ export function ImageGallery({ images, productName }: Props) {
               aria-label="画像を拡大表示"
             >
               <div className="relative aspect-square">
+                {/* 黒背景内で商品を上品に見せる、柔らかい設置影 */}
+                <div className="pointer-events-none absolute inset-x-12 bottom-6 h-8 rounded-full bg-black/70 blur-2xl" />
                 <Image
                   src={selected.image_url}
                   alt={selected.alt_text ?? productName}
                   fill
                   sizes="(max-width: 1024px) 100vw, 50vw"
-                  className="object-contain p-8 transition-transform duration-500 group-hover:scale-[1.02] sm:p-10"
+                  className="relative object-contain p-8 transition-transform duration-500 group-hover:scale-[1.02] sm:p-10"
                   priority
                 />
               </div>
