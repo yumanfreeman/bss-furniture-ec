@@ -339,11 +339,11 @@ export default async function ProductDetailPage({
         </span>
       </nav>
 
-      {/* ── Hero（PC: 左画像・右情報の2カラム／モバイル: 縦積み） ── */}
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_1fr] lg:gap-16">
+      {/* ── Hero（PC: サムネイル＋商品画像＋情報の3カラム構成／モバイル: 縦積み） ── */}
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1.2fr_1fr] lg:gap-12">
 
-        {/* ── 画像ギャラリー（画面占有を抑えるため最大幅を制限） ── */}
-        <div className="lg:sticky lg:top-6 lg:max-w-[480px] lg:self-start">
+        {/* ── 画像ギャラリー（左：縦サムネイル／中央：商品画像） ── */}
+        <div className="lg:sticky lg:top-6 lg:self-start">
           <ImageGallery images={images} productName={product.product_name} />
         </div>
 
@@ -432,7 +432,7 @@ export default async function ProductDetailPage({
             </p>
           )}
 
-          {/* ── CTAクラスター ── */}
+          {/* ── CTAクラスター（お問い合わせ・見積もり／カートに入れる／カートを見るの3構成） ── */}
           <div className="space-y-3 rounded-2xl border border-neutral-800/70 bg-neutral-900/20 p-5">
             {/* カートに入れる（価格未設定商品は非表示） */}
             {product.selling_price != null && product.selling_price > 0 && (

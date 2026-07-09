@@ -66,7 +66,7 @@ export function InstallationGallery({ images, productName }: Props) {
 
   return (
     <section className="mt-16 border-t border-neutral-800/60 pt-16">
-      <div className="mb-14 text-center">
+      <div className="mb-12 text-center">
         <p className="mb-4 text-[10px] font-medium tracking-[0.6em] text-amber-500 uppercase">
           Portfolio
         </p>
@@ -75,25 +75,21 @@ export function InstallationGallery({ images, productName }: Props) {
         </h2>
       </div>
 
-      {/* ── 作品集：写真を主役にした余白の大きいレイアウト（1枚目は大きく） ── */}
-      <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 sm:gap-12">
+      {/* ── 作品集：横並びの水平スクロールギャラリー（カード感を排除し写真を主役に） ── */}
+      <div className="-mx-6 flex snap-x snap-mandatory gap-6 overflow-x-auto px-6 pb-4 sm:gap-8">
         {validImages.map((img, i) => (
           <button
             key={img.id}
             type="button"
             onClick={() => openLightbox(img.id)}
-            className={`group relative cursor-zoom-in overflow-hidden rounded-lg bg-neutral-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
-              i === 0 && validImages.length > 1
-                ? "aspect-[16/9] sm:col-span-2"
-                : "aspect-[4/3]"
-            }`}
+            className="group relative aspect-[3/4] w-[240px] shrink-0 snap-center cursor-zoom-in overflow-hidden rounded-lg bg-neutral-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 sm:w-[320px]"
             aria-label={img.alt_text ?? `サロン設置イメージ ${i + 1}`}
           >
             <Image
               src={img.image_url}
               alt={img.alt_text ?? `${productName} サロン設置イメージ`}
               fill
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              sizes="(max-width: 640px) 240px, 320px"
               className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
             />
             <div className="absolute inset-0 bg-black/0 transition-colors duration-500 group-hover:bg-black/10" />
@@ -105,7 +101,7 @@ export function InstallationGallery({ images, productName }: Props) {
       </div>
 
       {/* ── 免責文言 ── */}
-      <p className="mx-auto mt-10 max-w-lg text-center text-[11px] leading-relaxed text-neutral-600">
+      <p className="mx-auto mt-8 max-w-lg text-center text-[11px] leading-relaxed text-neutral-600">
         ※写真はイメージです。実際の設置環境・照明により見え方が異なる場合があります。
       </p>
 

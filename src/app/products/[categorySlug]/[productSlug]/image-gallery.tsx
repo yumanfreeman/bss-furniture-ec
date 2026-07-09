@@ -148,8 +148,8 @@ export function ImageGallery({ images, productName }: Props) {
             </div>
           )}
 
-          {/* メイン画像（クリックで Lightbox） */}
-          <div className="order-1 min-w-0 flex-1 lg:order-2">
+          {/* メイン画像（クリックで Lightbox）：画面を占有しすぎないよう最大幅を制限し、商品を主役に中央配置 */}
+          <div className="order-1 min-w-0 flex-1 lg:order-2 lg:mx-auto lg:max-w-[440px]">
             <button
               type="button"
               onClick={openLightbox}
