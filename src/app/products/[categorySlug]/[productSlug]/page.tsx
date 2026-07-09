@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { Clock, Palette, Ruler, ShieldCheck, Truck, ArrowRight, type LucideIcon } from "lucide-react";
+import { ArrowRight, ShoppingCart } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { slugifyForUrl } from "@/lib/slugify";
 import { extractCategory } from "@/lib/types";
@@ -237,19 +237,7 @@ export default async function ProductDetailPage({
   // サロン設置イメージ（image_type === 'usage'）
   const installationImages = images.filter((img) => img.image_type === "usage");
 
-  // dimensions がある場合は個別の幅/奥行/高さ行を非表示（重複防止）
-  const hasDimensions = !!product.dimensions;
-  const specs: { label: string; value: string }[] = [
-    product.color                          ? { label: "カラー", value: product.color                      } : null,
-    product.material                       ? { label: "素材",   value: product.material                   } : null,
-    product.dimensions                     ? { label: "サイズ", value: product.dimensions                 } : null,
-    (!hasDimensions && product.width_mm)   ? { label: "幅",     value: `${product.width_mm} mm`           } : null,
-    (!hasDimensions && product.depth_mm)   ? { label: "奥行",   value: `${product.depth_mm} mm`           } : null,
-    (!hasDimensions && product.height_mm)  ? { label: "高さ",   value: `${product.height_mm} mm`          } : null,
-    product.lead_time                      ? { label: "納期",   value: product.lead_time                  } : null,
-  ].filter((s): s is { label: string; value: string } => s !== null);
-
-  // 商品情報サマリー（アイコン付き：納期・カラー・サイズ・保証・配送方法）
+  // サイズサマリー（dimensions優先、なければ幅×奥行×高さを合成）
   const sizeSummary =
     product.dimensions ??
     ([
@@ -258,13 +246,19 @@ export default async function ProductDetailPage({
       product.height_mm ? `高さ${product.height_mm}mm` : null,
     ].filter((v): v is string => !!v).join(" × ") || null);
 
-  const infoItems: { label: string; value: string; icon: LucideIcon }[] = [
-    product.lead_time ? { label: "納期",   value: product.lead_time, icon: Clock       } : null,
-    product.color     ? { label: "カラー", value: product.color,     icon: Palette     } : null,
-    sizeSummary        ? { label: "サイズ", value: sizeSummary,       icon: Ruler       } : null,
-    product.warranty  ? { label: "保証",   value: product.warranty,  icon: ShieldCheck } : null,
-    { label: "配送方法", value: "個別配送（送料は別途お見積り）", icon: Truck },
-  ].filter((s): s is { label: string; value: string; icon: LucideIcon } => s !== null);
+  // Specifications（SIZE / COLOR / MATERIAL / DELIVERY / PRODUCTION をシンプルに表示）
+  const specRows: { label: string; value: string }[] = [
+    sizeSummary       ? { label: "SIZE",     value: sizeSummary }      : null,
+    product.color     ? { label: "COLOR",    value: product.color }    : null,
+    product.material  ? { label: "MATERIAL", value: product.material } : null,
+    { label: "DELIVERY", value: "個別配送（送料は別途お見積り）" },
+    product.lead_time
+      ? { label: "PRODUCTION", value: product.lead_time }
+      : product.is_made_to_order
+        ? { label: "PRODUCTION", value: "受注生産" }
+        : null,
+    product.warranty  ? { label: "WARRANTY", value: product.warranty } : null,
+  ].filter((s): s is { label: string; value: string } => s !== null);
 
   // パンくずの末尾は SKU slug（仕様通り）
   const breadcrumbEnd = product.sku ? slugifyForUrl(product.sku) : product.id;
@@ -355,8 +349,8 @@ export default async function ProductDetailPage({
         </span>
       </nav>
 
-      {/* ── メインレイアウト（PC: 左画像・右情報） ── */}
-      <div className="grid grid-cols-1 gap-14 lg:grid-cols-[1fr_1fr]">
+      {/* ── Hero（PC: 左画像・右情報の2カラム／モバイル: 縦積み） ── */}
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_1fr] lg:gap-16">
 
         {/* ── 画像ギャラリー ── */}
         <div className="lg:sticky lg:top-6 lg:self-start">
@@ -364,7 +358,7 @@ export default async function ProductDetailPage({
         </div>
 
         {/* ── 商品情報カラム ── */}
-        <div className="space-y-8">
+        <div className="space-y-7">
 
           {/* バッジ群 */}
           <div className="flex flex-wrap items-center gap-2">
@@ -375,7 +369,7 @@ export default async function ProductDetailPage({
             <StockBadge qty={product.stock_quantity} isMto={product.is_made_to_order} />
           </div>
 
-          {/* 商品名 */}
+          {/* 商品名・SKU */}
           <div>
             <h1 className="text-[26px] font-light leading-snug tracking-wide text-neutral-100">
               {product.product_name}
@@ -386,6 +380,13 @@ export default async function ProductDetailPage({
               </p>
             )}
           </div>
+
+          {/* 説明 */}
+          {product.description && (
+            <p className="whitespace-pre-wrap text-sm leading-[1.9] text-neutral-400">
+              {product.description}
+            </p>
+          )}
 
           {/* 価格 */}
           <div className="border-y border-neutral-800 py-5">
@@ -406,28 +407,24 @@ export default async function ProductDetailPage({
             )}
           </div>
 
-          {/* 商品情報サマリー（アイコン付き：納期・カラー・サイズ・保証・配送方法） */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {infoItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <div
-                  key={item.label}
-                  className="flex items-start gap-2.5 rounded-xl border border-neutral-800 bg-neutral-900/40 px-4 py-3"
-                >
-                  <Icon size={16} className="mt-0.5 shrink-0 text-amber-500/70" />
-                  <div className="min-w-0">
-                    <p className="text-[9px] tracking-[0.2em] text-neutral-600 uppercase">
-                      {item.label}
-                    </p>
-                    <p className="mt-0.5 text-xs leading-snug text-neutral-300">
-                      {item.value}
-                    </p>
+          {/* Specifications（SIZE / COLOR / MATERIAL / DELIVERY / PRODUCTION） */}
+          {specRows.length > 0 && (
+            <div>
+              <p className="mb-1 text-[9px] font-medium tracking-[0.5em] text-neutral-600 uppercase">
+                Specifications
+              </p>
+              <div className="divide-y divide-neutral-800/60">
+                {specRows.map((s) => (
+                  <div key={s.label} className="flex items-center justify-between py-3">
+                    <span className="text-[10px] tracking-[0.25em] text-neutral-600">
+                      {s.label}
+                    </span>
+                    <span className="text-right text-xs text-neutral-300">{s.value}</span>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 受注生産の注意書き */}
           {product.stock_quantity === 0 && product.is_made_to_order && (
@@ -437,40 +434,46 @@ export default async function ProductDetailPage({
             </p>
           )}
 
-          {/* 説明 */}
-          {product.description && (
-            <div>
-              <p className="mb-3 text-[9px] font-medium tracking-[0.5em] text-neutral-600 uppercase">
-                Description
-              </p>
-              <p className="whitespace-pre-wrap text-sm leading-[1.9] text-neutral-400">
-                {product.description}
-              </p>
-            </div>
-          )}
+          {/* ── CTAクラスター ── */}
+          <div className="space-y-4 rounded-2xl border border-neutral-800/70 bg-neutral-900/20 p-6">
+            {/* カートに入れる（価格未設定商品は非表示） */}
+            {product.selling_price != null && product.selling_price > 0 && (
+              <AddToCartButton
+                productId={product.id}
+                productName={product.product_name}
+                sku={product.sku}
+                unitPrice={product.selling_price}
+                imageUrl={firstValidImageUrl}
+                categorySlug={cat.slug}
+                productSlug={breadcrumbEnd}
+              />
+            )}
 
-          {/* スペック */}
-          {specs.length > 0 && (
-            <div>
-              <p className="mb-4 text-[9px] font-medium tracking-[0.5em] text-neutral-600 uppercase">
-                Specifications
-              </p>
-              <div className="divide-y divide-neutral-800/60 overflow-hidden rounded-xl border border-neutral-800">
-                {specs.map((s) => (
-                  <div key={s.label} className="flex items-center gap-6 px-5 py-3">
-                    <span className="w-16 shrink-0 text-[10px] tracking-wide text-neutral-600">
-                      {s.label}
-                    </span>
-                    <span className="text-xs text-neutral-300">{s.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+            {/* お問い合わせ・お見積もり（モーダル+スティッキー統合） */}
+            <InquirySection
+              productId={product.id}
+              productName={product.product_name}
+              sku={product.sku}
+              categorySlug={cat.slug}
+            />
 
-          {/* 特徴 */}
+            {/* カートを見る */}
+            <Link
+              href="/cart"
+              className="flex items-center justify-center gap-1.5 pt-1 text-xs text-neutral-500 transition-colors hover:text-amber-400"
+            >
+              <ShoppingCart size={13} />
+              カートを見る
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Details（特徴・仕様書PDF：Heroから分離したコンパクトな補足情報） ── */}
+      {(product.features || product.pdf_url) && (
+        <section className="mt-16 border-t border-neutral-800/60 pt-10">
           {product.features && (
-            <div>
+            <div className="mb-6 max-w-2xl">
               <p className="mb-3 text-[9px] font-medium tracking-[0.5em] text-neutral-600 uppercase">
                 Features
               </p>
@@ -479,19 +482,17 @@ export default async function ProductDetailPage({
               </p>
             </div>
           )}
-
-          {/* 仕様書PDF */}
           {product.pdf_url && (
             <a
               href={product.pdf_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-neutral-700 px-6 py-3.5 text-sm font-medium text-neutral-400 transition-colors hover:border-amber-500/50 hover:text-amber-400"
+              className="inline-flex items-center gap-2 text-xs font-medium text-neutral-500 transition-colors hover:text-amber-400"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="15"
-                height="15"
+                width="14"
+                height="14"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -507,60 +508,20 @@ export default async function ProductDetailPage({
               仕様書をダウンロード（PDF）
             </a>
           )}
+        </section>
+      )}
 
-          {/* ── カートに入れる（価格未設定商品は非表示） ── */}
-          {product.selling_price != null && product.selling_price > 0 && (
-            <AddToCartButton
-              productId={product.id}
-              productName={product.product_name}
-              sku={product.sku}
-              unitPrice={product.selling_price}
-              imageUrl={firstValidImageUrl}
-              categorySlug={cat.slug}
-              productSlug={breadcrumbEnd}
-            />
-          )}
-
-          {/* ── 問い合わせ（モーダル+スティッキー統合） ── */}
-          <InquirySection
-            productId={product.id}
-            productName={product.product_name}
-            sku={product.sku}
-            categorySlug={cat.slug}
-          />
-        </div>
-      </div>
-
-      {/* ── WHY THIS PRODUCT（商品ストーリー） ── */}
-      <section className="mt-28 border-t border-neutral-800/60 pt-20">
-        <div className="mb-16 text-center">
-          <p className="mb-4 text-[10px] font-medium tracking-[0.6em] text-amber-500 uppercase">
-            Why This Product
-          </p>
-          <h2 className="text-2xl font-light tracking-wider text-neutral-100 sm:text-3xl">
-            スペックだけでは伝わらない、
-            <br className="hidden sm:block" />
-            この商品が生み出す価値
-          </h2>
-        </div>
-        <div className="mx-auto max-w-3xl space-y-16">
-          {productStory.map((s) => (
-            <div key={s.num} className="text-center">
-              <p className="font-mono text-xs tracking-[0.3em] text-amber-500/60">{s.num}</p>
-              <p className="mt-3 mb-5 text-[10px] font-medium tracking-[0.4em] text-neutral-500 uppercase">
-                {s.en} — {s.ja}
-              </p>
-              <p className="text-base font-light leading-[2.1] tracking-wide text-neutral-300 sm:text-lg">
-                {s.text}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* ── サロン設置イメージ（Hero直下・image_type === 'usage' の画像がある場合のみ） ── */}
+      {installationImages.length > 0 && (
+        <InstallationGallery
+          images={installationImages}
+          productName={product.product_name}
+        />
+      )}
 
       {/* ── Before / After（商品単体 → 設置イメージ） ── */}
       {beforeAfterProductImage && beforeAfterInstallationImage && (
-        <section className="mt-28 border-t border-neutral-800/60 pt-20">
+        <section className="mt-20 border-t border-neutral-800/60 pt-20">
           <div className="mb-14 text-center">
             <p className="mb-4 text-[10px] font-medium tracking-[0.6em] text-amber-500 uppercase">
               Before / After
@@ -605,13 +566,32 @@ export default async function ProductDetailPage({
         </section>
       )}
 
-      {/* ── サロン設置イメージ（image_type === 'usage' の画像がある場合のみ） ── */}
-      {installationImages.length > 0 && (
-        <InstallationGallery
-          images={installationImages}
-          productName={product.product_name}
-        />
-      )}
+      {/* ── WHY THIS PRODUCT（商品ストーリー） ── */}
+      <section className="mt-20 border-t border-neutral-800/60 pt-20">
+        <div className="mb-16 text-center">
+          <p className="mb-4 text-[10px] font-medium tracking-[0.6em] text-amber-500 uppercase">
+            Why This Product
+          </p>
+          <h2 className="text-2xl font-light tracking-wider text-neutral-100 sm:text-3xl">
+            スペックだけでは伝わらない、
+            <br className="hidden sm:block" />
+            この商品が生み出す価値
+          </h2>
+        </div>
+        <div className="mx-auto max-w-3xl space-y-16">
+          {productStory.map((s) => (
+            <div key={s.num} className="text-center">
+              <p className="font-mono text-xs tracking-[0.3em] text-amber-500/60">{s.num}</p>
+              <p className="mt-3 mb-5 text-[10px] font-medium tracking-[0.4em] text-neutral-500 uppercase">
+                {s.en} — {s.ja}
+              </p>
+              <p className="text-base font-light leading-[2.1] tracking-wide text-neutral-300 sm:text-lg">
+                {s.text}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* ── おすすめセット（カテゴリ違いの相性商品） ── */}
       {complementaryProducts.length > 0 && (
@@ -632,15 +612,15 @@ export default async function ProductDetailPage({
         </section>
       )}
 
-      {/* ── この商品に合うおすすめ商品 ── */}
+      {/* ── Complete Your Salon（この商品に合うおすすめ商品） ── */}
       {relatedProducts.length > 0 && (
         <section className="mt-24 border-t border-neutral-800/60 pt-16">
           <div className="mb-8">
             <p className="text-[9px] font-medium tracking-[0.5em] text-amber-500 uppercase">
-              Recommended
+              Curated Selection
             </p>
             <h2 className="mt-1 text-lg font-light tracking-wider text-neutral-300">
-              この商品に合うおすすめ商品
+              Complete Your Salon
             </h2>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -676,14 +656,10 @@ export default async function ProductDetailPage({
       <section className="mt-24 border-y border-amber-500/20 bg-black px-6 py-32 text-center">
         <div className="mx-auto mb-10 h-px w-20 bg-amber-500/40" />
         <p className="text-2xl font-light tracking-[0.35em] text-neutral-100 sm:text-3xl">
-          BEAUTY SALON
-          <br className="sm:hidden" />
-          <span className="sm:ml-4">SUPPLIERS</span>
+          BEAUTY SALON SUPPLIERS
         </p>
-        <p className="mx-auto mt-8 max-w-md text-xs leading-[2.2] tracking-wide text-neutral-600">
-          家具の先にある、サロンというブランド。
-          <br />
-          BSSは、空間づくりを通じてその価値を高めます。
+        <p className="mt-5 text-sm font-light italic tracking-wide text-amber-400/90 sm:text-base">
+          We Design Beautiful Salons.
         </p>
         <div className="mx-auto mt-10 h-px w-20 bg-amber-500/40" />
       </section>

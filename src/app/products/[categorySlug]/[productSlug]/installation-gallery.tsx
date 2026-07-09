@@ -65,42 +65,42 @@ export function InstallationGallery({ images, productName }: Props) {
   if (validImages.length === 0) return null;
 
   return (
-    <section className="mt-24 border-t border-neutral-800/60 pt-16">
-      <div className="mb-8">
-        <p className="text-[9px] font-medium tracking-[0.5em] text-amber-500 uppercase">
+    <section className="mt-20 border-t border-neutral-800/60 pt-20">
+      <div className="mb-12 text-center">
+        <p className="mb-4 text-[10px] font-medium tracking-[0.6em] text-amber-500 uppercase">
           Installation Image
         </p>
-        <h2 className="mt-1 text-lg font-light tracking-wider text-neutral-300">
+        <h2 className="text-2xl font-light tracking-wider text-neutral-100 sm:text-3xl">
           サロン設置イメージ
         </h2>
       </div>
 
       {/* ── グリッド（クリックで Lightbox） ── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {validImages.map((img, i) => (
           <button
             key={img.id}
             type="button"
             onClick={() => openLightbox(img.id)}
-            className="group relative aspect-square cursor-zoom-in overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950 transition-colors hover:border-amber-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+            className="group relative aspect-[4/3] cursor-zoom-in overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950 transition-all duration-500 hover:-translate-y-1 hover:border-amber-500/40 hover:shadow-[0_20px_50px_rgba(0,0,0,0.6)] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
             aria-label={img.alt_text ?? `サロン設置イメージ ${i + 1}`}
           >
             <Image
               src={img.image_url}
               alt={img.alt_text ?? `${productName} サロン設置イメージ`}
               fill
-              sizes="(max-width: 640px) 50vw, 33vw"
-              className="object-cover transition-transform duration-300 group-hover:scale-105"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              className="object-cover transition-transform duration-700 group-hover:scale-105"
             />
-            <div className="absolute right-2 top-2 rounded-full bg-black/50 p-1.5 opacity-0 backdrop-blur-sm transition-opacity duration-200 group-hover:opacity-100">
-              <ZoomIn size={13} className="text-neutral-300" />
+            <div className="absolute right-3 top-3 rounded-full bg-black/50 p-1.5 opacity-0 backdrop-blur-sm transition-opacity duration-200 group-hover:opacity-100">
+              <ZoomIn size={14} className="text-neutral-300" />
             </div>
           </button>
         ))}
       </div>
 
       {/* ── 免責文言 ── */}
-      <p className="mt-4 text-center text-[10px] leading-relaxed text-neutral-600">
+      <p className="mx-auto mt-8 max-w-lg text-center text-[11px] leading-relaxed text-neutral-600">
         ※写真はイメージです。実際の設置環境・照明により見え方が異なる場合があります。
       </p>
 

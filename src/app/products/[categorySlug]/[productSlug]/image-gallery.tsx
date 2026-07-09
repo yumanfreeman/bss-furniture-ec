@@ -116,65 +116,70 @@ export function ImageGallery({ images, productName }: Props) {
           </div>
         )}
 
-        {/* ── メイン画像（クリックで Lightbox） ── */}
-        <button
-          type="button"
-          onClick={openLightbox}
-          className="group relative block w-full cursor-zoom-in overflow-hidden rounded-xl border border-neutral-800/80 bg-neutral-950 shadow-[0_0_50px_rgba(0,0,0,0.7)] ring-1 ring-white/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
-          aria-label="画像を拡大表示"
-        >
-          <div className="relative aspect-square">
-            <Image
-              src={selected.image_url}
-              alt={selected.alt_text ?? productName}
-              fill
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              className="object-contain p-4 transition-transform duration-500 group-hover:scale-[1.02]"
-              priority
-            />
-          </div>
-          {/* 拡大アイコン（ホバー時） */}
-          <div className="absolute right-3 top-3 rounded-full bg-black/50 p-1.5 opacity-0 backdrop-blur-sm transition-opacity duration-200 group-hover:opacity-100">
-            <ZoomIn size={14} className="text-neutral-300" />
-          </div>
-        </button>
+        {/* ── サムネイル＋メイン画像（PC：サムネイル左・メイン右／モバイル：メイン上・サムネイル下） ── */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:gap-5">
+          {/* サムネイル（複数枚のみ） */}
+          {activeImages.length > 1 && (
+            <div className="order-2 flex gap-2.5 overflow-x-auto pb-1 lg:order-1 lg:max-h-[560px] lg:w-20 lg:shrink-0 lg:flex-col lg:gap-3 lg:overflow-x-visible lg:overflow-y-auto lg:pb-0">
+              {activeImages.map((img, i) => {
+                const isActive = img.id === selectedId;
+                return (
+                  <button
+                    key={img.id}
+                    type="button"
+                    onClick={() => setSelectedId(img.id)}
+                    className={`relative h-[76px] w-[76px] shrink-0 overflow-hidden rounded-lg border bg-neutral-900 transition-all duration-200 lg:w-full ${
+                      isActive
+                        ? "border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.35)] scale-[1.03]"
+                        : "border-neutral-800 opacity-70 hover:border-neutral-600 hover:opacity-100"
+                    }`}
+                    aria-label={img.alt_text ?? `画像 ${i + 1}`}
+                  >
+                    <Image
+                      src={img.image_url}
+                      alt={img.alt_text ?? ""}
+                      fill
+                      sizes="76px"
+                      className="object-contain p-1.5"
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
-        {/* ── サムネイル（複数枚のみ） ── */}
-        {activeImages.length > 1 && (
-          <div className="flex gap-2.5 overflow-x-auto pb-1">
-            {activeImages.map((img, i) => {
-              const isActive = img.id === selectedId;
-              return (
-                <button
-                  key={img.id}
-                  type="button"
-                  onClick={() => setSelectedId(img.id)}
-                  className={`relative h-[76px] w-[76px] shrink-0 overflow-hidden rounded-lg border bg-neutral-900 transition-all duration-200 ${
-                    isActive
-                      ? "border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.35)] scale-[1.03]"
-                      : "border-neutral-800 opacity-70 hover:border-neutral-600 hover:opacity-100"
-                  }`}
-                  aria-label={img.alt_text ?? `画像 ${i + 1}`}
-                >
-                  <Image
-                    src={img.image_url}
-                    alt={img.alt_text ?? ""}
-                    fill
-                    sizes="76px"
-                    className="object-contain p-1.5"
-                  />
-                </button>
-              );
-            })}
-          </div>
-        )}
+          {/* メイン画像（クリックで Lightbox） */}
+          <div className="order-1 min-w-0 flex-1 lg:order-2">
+            <button
+              type="button"
+              onClick={openLightbox}
+              className="group relative block w-full cursor-zoom-in overflow-hidden rounded-xl border border-neutral-800/80 bg-neutral-950 bg-[radial-gradient(circle_at_50%_38%,rgba(255,255,255,0.035),transparent_70%)] shadow-[0_0_50px_rgba(0,0,0,0.7)] ring-1 ring-white/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+              aria-label="画像を拡大表示"
+            >
+              <div className="relative aspect-square">
+                <Image
+                  src={selected.image_url}
+                  alt={selected.alt_text ?? productName}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  className="object-contain p-8 transition-transform duration-500 group-hover:scale-[1.02] sm:p-10"
+                  priority
+                />
+              </div>
+              {/* 拡大アイコン（ホバー時） */}
+              <div className="absolute right-3 top-3 rounded-full bg-black/50 p-1.5 opacity-0 backdrop-blur-sm transition-opacity duration-200 group-hover:opacity-100">
+                <ZoomIn size={14} className="text-neutral-300" />
+              </div>
+            </button>
 
-        {/* 枚数インジケーター */}
-        {activeImages.length > 1 && (
-          <p className="text-center font-mono text-[10px] tracking-widest text-neutral-700">
-            {selectedIndex + 1} / {activeImages.length}
-          </p>
-        )}
+            {/* 枚数インジケーター */}
+            {activeImages.length > 1 && (
+              <p className="mt-3 text-center font-mono text-[10px] tracking-widest text-neutral-700">
+                {selectedIndex + 1} / {activeImages.length}
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* ── Lightbox ── */}
